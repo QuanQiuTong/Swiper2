@@ -50,3 +50,11 @@ class ImageUtils:
             return 1.0
             
         return np.sum(intersection) / union_sum
+    
+H, W = 1080, 2400  # 适配 Android 15 / API 36 的默认屏幕分辨率
+def convert(*coords):
+    """将坐标转换为适配 Android 15 / API 36 的格式"""
+    if len(coords) != 2:
+        raise ValueError("坐标必须是 (x, y) 格式")
+    x, y = coords
+    return [round(x*1000/W, 1), round(y*1000/H, 1)]

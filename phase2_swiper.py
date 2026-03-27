@@ -3,6 +3,8 @@ import time
 import shutil
 from pathlib import Path
 from core.device_controller import UIAutomatorController
+from utils.image_utils import convert
+
 
 class Phase2Swiper:
     def __init__(self, package_name: str, use_local_vlm=True):
@@ -88,7 +90,8 @@ class Phase2Swiper:
                     shutil.move(before_img, final_before)
                     shutil.move(after_img, final_after)
                     
-                    self.successful_swipes.append({
+                    # Old format for dataset entry, can be extended with more metadata if needed
+                    {
                         "dataset_id": dataset_id,
                         "source_page": page_id,
                         "intent": region.get('description', ''),
@@ -96,6 +99,32 @@ class Phase2Swiper:
                         "swipe_params": swipe_params,
                         "before_image": str(final_before),
                         "after_image": str(final_after)
+                    }
+
+                    sx, sy = swipe_params['start']
+                    ex, ey = swipe_params['end'] 
+
+                    action = {
+                        "action": "swipe",
+                        "bbox": region['bbox'],
+                        "instruction": region.get('description', ''),
+                        "start": convert([sx, sy]),
+                        "end": convert([ex, ey]),
+                        "duration": swipe_params['duration'],
+                        "direction": region.get('direction', '')
+                    }
+                       
+                    if sx == ex:  # x不变，竖向滑动
+                        action['direction'] = "up" if sy > ey else "down"
+                    elif sy == ey:  # y不变，横向滑动
+                        action['direction'] = "left" if sx > ex else "right"
+                    else: # 并非纯水平或垂直滑动，暂不标记
+                        pass
+
+                    # 我们项目的数据结构
+                    self.successful_swipes.append({
+                        "img_filename": str(final_before),
+                        "action_data": action
                     })
                     self.save_dataset()
                 else:
