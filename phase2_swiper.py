@@ -3,7 +3,7 @@ import time
 import shutil
 from pathlib import Path
 from core.device_controller import UIAutomatorController
-from utils.image_utils import convert
+from utils.image_utils import convert, calculate_image_diff
 
 
 class Phase2Swiper:
@@ -79,7 +79,7 @@ class Phase2Swiper:
                 self.controller.take_screenshot(after_img)
                 
                 # 步骤 E：对比验证
-                is_success = self.controller.calculate_image_diff(before_img, after_img, threshold=0.01)
+                is_success = calculate_image_diff(before_img, after_img, threshold=0.01)
                 
                 if is_success:
                     print("    -> ✅ 验证成功！页面发生了实质性变化，保存为有效数据。")

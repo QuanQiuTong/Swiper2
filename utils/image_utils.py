@@ -51,6 +51,34 @@ class ImageUtils:
             
         return np.sum(intersection) / union_sum
     
+def calculate_image_diff(img_path1: str, img_path2: str, threshold=0.01) -> bool:
+    """
+    计算两张截图的像素级差异。
+    用于判断滑动操作是否引发了界面的实质性改变。
+    """
+    import cv2
+    import numpy as np
+    
+    img1 = cv2.imread(img_path1, cv2.IMREAD_GRAYSCALE)
+    img2 = cv2.imread(img_path2, cv2.IMREAD_GRAYSCALE)
+    
+    if img1 is None or img2 is None:
+        return False
+        
+    if img1.shape != img2.shape:
+        img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
+        
+    # 计算绝对差值
+    diff = cv2.absdiff(img1, img2)
+    # 二值化，过滤掉微小的渲染噪点（像素差大于10认为是变化）
+    _, diff_thresh = cv2.threshold(diff, 10, 255, cv2.THRESH_BINARY)
+    
+    # 计算变化像素占总像素的比例
+    change_ratio = np.count_nonzero(diff_thresh) / diff_thresh.size
+    print(f"[Verify] 界面变化比例: {change_ratio:.4f} (阈值: {threshold})")
+    
+    return change_ratio > threshold
+    
 H, W = 1080, 2400  # 适配 Android 15 / API 36 的默认屏幕分辨率
 def convert(*coords):
     """将坐标转换为适配 Android 15 / API 36 的格式"""

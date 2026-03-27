@@ -179,30 +179,48 @@ class UIAutomatorController:
             "duration": duration
         }
 
-    def calculate_image_diff(self, img_path1: str, img_path2: str, threshold=0.01) -> bool:
+    def get_scrollable_elements_xml(self):
         """
-        计算两张截图的像素级差异。
-        用于判断滑动操作是否引发了界面的实质性改变。
+        利用 XML 提取明确的可滑动组件 (Scrollable Components)。
+        依据：scrollable="true" 或者是拖动条 (SeekBar)。
         """
-        import cv2
-        import numpy as np
-        
-        img1 = cv2.imread(img_path1, cv2.IMREAD_GRAYSCALE)
-        img2 = cv2.imread(img_path2, cv2.IMREAD_GRAYSCALE)
-        
-        if img1 is None or img2 is None:
-            return False
+        elements =[]
+        try:
+            xml_dump = self.d.dump_hierarchy()
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(xml_dump)
             
-        if img1.shape != img2.shape:
-            img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
+            for node in root.iter('node'):
+                is_scrollable = node.attrib.get('scrollable') == 'true'
+                is_seekbar = 'SeekBar' in node.attrib.get('class', '')
+                
+                if is_scrollable or is_seekbar:
+                    bounds_str = node.attrib.get('bounds')
+                    if not bounds_str: continue
+                        
+                    bounds_str = bounds_str.replace('][', ',').replace('[', '').replace(']', '')
+                    x1, y1, x2, y2 = map(int, bounds_str.split(','))
+                    
+                    if x2 <= x1 or y2 <= y1: continue
+                    
+                    # 确定滑动的优势方向 (Dominant Axis)
+                    width = x2 - x1
+                    height = y2 - y1
+                    # 如果高度大于宽度，通常是上下滑动；反之则是左右滑动
+                    direction = "vertical" if height > width else "horizontal"
+                    
+                    # 提取组件内可能包含的文字（借鉴之前的聚合思想）
+                    aggregated_texts = self._extract_all_text_from_node(node)
+                    final_text = " | ".join(aggregated_texts) if aggregated_texts else "无文本内容"
+                    
+                    elements.append({
+                        'category': 'component', # 标记为明确的组件
+                        'bounds': [x1, y1, x2, y2],
+                        'direction': direction,
+                        'text': final_text,
+                        'resourceId': node.attrib.get('resource-id', '')
+                    })
+        except Exception as e:
+            print(f"解析 XML 获取滑动节点失败: {e}")
             
-        # 计算绝对差值
-        diff = cv2.absdiff(img1, img2)
-        # 二值化，过滤掉微小的渲染噪点（像素差大于10认为是变化）
-        _, diff_thresh = cv2.threshold(diff, 10, 255, cv2.THRESH_BINARY)
-        
-        # 计算变化像素占总像素的比例
-        change_ratio = np.count_nonzero(diff_thresh) / diff_thresh.size
-        print(f"[Verify] 界面变化比例: {change_ratio:.4f} (阈值: {threshold})")
-        
-        return change_ratio > threshold
+        return elements
