@@ -1,0 +1,52 @@
+import cv2
+import numpy as np
+
+class ImageUtils:
+    @staticmethod
+    def get_skeleton_image(image_path: str) -> np.ndarray:
+        """提取图像的骨架图"""
+        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            raise ValueError(f"无法读取图片: {image_path}")
+        
+        # 1. 缩小分辨率，抹平过细的细节
+        scale_percent = 300 / img.shape[1]
+        width = int(img.shape[1] * scale_percent)
+        height = int(img.shape[0] * scale_percent)
+        resized = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+        
+        # 2. 高斯模糊，进一步去除内容纹理
+        blurred = cv2.GaussianBlur(resized, (5, 5), 0)
+        
+        # 3. 边缘检测，提取UI组件的边界骨架
+        edges = cv2.Canny(blurred, 50, 150)
+        
+        # 4. 膨胀操作，让组件的边框更加粗壮连贯
+        kernel = np.ones((3, 3), np.uint8)
+        skeleton = cv2.dilate(edges, kernel, iterations=1)
+        
+        return skeleton
+
+    @staticmethod
+    def save_skeleton(image_path: str, output_path: str):
+        """生成并保存骨架图用于直观展示"""
+        skeleton = ImageUtils.get_skeleton_image(image_path)
+        cv2.imwrite(output_path, skeleton)
+
+    @staticmethod
+    def calculate_skeleton_similarity(img_path1: str, img_path2: str) -> float:
+        """计算两张截图的骨架相似度"""
+        skel1 = ImageUtils.get_skeleton_image(img_path1)
+        skel2 = ImageUtils.get_skeleton_image(img_path2)
+        
+        if skel1.shape != skel2.shape:
+            skel2 = cv2.resize(skel2, (skel1.shape[1], skel1.shape[0]))
+            
+        intersection = np.logical_and(skel1 > 0, skel2 > 0)
+        union = np.logical_or(skel1 > 0, skel2 > 0)
+        
+        union_sum = np.sum(union)
+        if union_sum == 0:
+            return 1.0
+            
+        return np.sum(intersection) / union_sum
