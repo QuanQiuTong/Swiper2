@@ -55,9 +55,19 @@ class Phase1Explorer:
                 action = {'x': cx, 'y': cy, 'desc': btn_name}
                 new_trajectory = current_page.trajectory + [action]
 
-                self.controller.click(cx, cy)
+                # 【关键修复1】探索未知区域时，点击后多等一会儿 (2.5秒)，确保转场动画和网络请求完成
+                self.controller.click(cx, cy, delay=2.5)
                 
-                # 截取临时图
+                # 【关键修复2】防逃逸检查 (Escape Check)
+                # 判断点击后是否跳到了桌面、其他App或广告浏览器
+                current_pkg = self.controller.get_current_package()
+                if current_pkg != self.package:
+                    print(f"  -> ⚠️ 意外跳出目标应用 (当前位于: {current_pkg})。放弃该分支。")
+                    # 直接跳过后续的截图和XML解析环节，不把桌面计入图谱
+                    # 也不用担心回不去，下一次 for 循环一开始就会调用 replay_trajectory 将 App 强行拉回目标页面
+                    continue
+                
+                # 截取临时图 (此时画面必定是加载稳定、且属于目标 App 的)
                 temp_img = str(self.temp_dir / f"temp_{int(time.time())}.png")
                 self.controller.take_screenshot(temp_img)
                 
@@ -69,7 +79,7 @@ class Phase1Explorer:
                     new_page_id = self.memory.add_page(temp_img, new_trajectory)
                     print(f"  -> ⭐ 发现新页面骨架! 记录为 {new_page_id}")
 
-                    # 由于当前App画面就在这个新页面，顺手提取一下XML里的可滑动组件
+                    # 提取XML里的可滑动组件
                     new_page_node = self.memory.get_page(new_page_id)
                     new_page_node.scrollable_components = self.controller.get_scrollable_elements_xml()
                     print(f"     已提取并保存 {len(new_page_node.scrollable_components)} 个 XML 可滑动组件。")

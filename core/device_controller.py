@@ -123,9 +123,20 @@ class UIAutomatorController:
     def take_screenshot(self, output_path: str):
         return self.take_anonymized_screenshot(output_path)
 
-    def click(self, x, y):
+    def get_current_package(self):
+        """获取当前正在前台运行的 App 包名"""
+        try:
+            return self.d.app_current()['package']
+        except Exception:
+            return ""
+
+    def click(self, x, y, delay=1.5):
+        """
+        执行点击并等待。
+        增加 delay 参数，以便区分“探索”和“回放”时的不同等待需求。
+        """
         self.d.click(x, y)
-        time.sleep(0.5) # 1.5
+        time.sleep(delay)
 
     def reset_app(self, package_name):
         self.d.app_stop(package_name)
@@ -134,10 +145,14 @@ class UIAutomatorController:
         time.sleep(3)
 
     def replay_trajectory(self, package_name, trajectory):
+        """重新启动 App 并回放轨迹"""
         self.reset_app(package_name)
         for action in trajectory:
-            self.click(action['x'], action['y'])
-            time.sleep(1)
+            # 回放时可以稍微快一点，因为这些路径我们确认过了
+            self.click(action['x'], action['y'], delay=1.0)
+        
+        # 【关键修复】回放结束后，多等 2 秒，确保最终目标页面彻底加载完毕！
+        time.sleep(2.0)
     
     def swipe_by_normalized_bbox(self, bbox: list, direction: str, duration=0.3):
         """
