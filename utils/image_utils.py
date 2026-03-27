@@ -79,8 +79,8 @@ def calculate_image_diff(img_path1: str, img_path2: str, threshold=0.01) -> bool
     
     return change_ratio > threshold
     
-H, W = 1080, 2400  # 适配 Android 15 / API 36 的默认屏幕分辨率
-def convert(*coords):
+W, H = 1080, 2400  # 适配 Android 15 / API 36 的默认屏幕分辨率
+def convert(coords):
     """将坐标转换为适配 Android 15 / API 36 的格式"""
     if len(coords) != 2:
         raise ValueError("坐标必须是 (x, y) 格式")
