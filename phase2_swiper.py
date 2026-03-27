@@ -46,19 +46,51 @@ class Phase2Swiper:
             img_path = page['image_path']
             trajectory = page['trajectory']
             
-            print(f"\n--- 正在分析页面: {page_id} ---")
+            print(f"\n--- 正在处理页面: {page_id} ---")
             
-            # 1. 离线调用本地 VLM 获取可滑动区域
-            regions = self.vlm.analyze_slidable_regions(img_path)
-            if not regions:
-                print(f"  -> VLM 认为此页面没有可滑动区域，跳过。")
-                continue
-                
-            print(f"  -> VLM 检测到 {len(regions)} 个候选滑动区域。")
+            all_swipe_candidates =[]
+            
+            # --- 来源 1：提取 Phase 1 中 XML 找到的组件 ---
+            xml_components = page.get('scrollable_components',[])
+            if xml_components:
+                print(f"  -> 正在为 {len(xml_components)} 个 XML 可滑动组件向 VLM 请求意图指令...")
+                for comp in xml_components:
+                    # 获取高质量的自然语言指令
+                    intent_cmd = self.vlm.generate_intent_for_xml_component(
+                        img_path, comp['bounds'], comp['direction'], comp['text']
+                    )
+                    
+                    # 坐标转换：把 XML 的物理坐标转成归一化坐标送进待测队列
+                    w, h = self.controller.window_size
+                    norm_bbox = [
+                        int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
+                        int(comp['bounds'][2]/w*1000), int(comp['bounds'][3]/h*1000)
+                    ]
+                    
+                    all_swipe_candidates.append({
+                        "category": "component",
+                        "type": "XML Component",
+                        "direction": comp['direction'],
+                        "bbox": norm_bbox,
+                        "command": intent_cmd
+                    })
+                    print(f"     [组件] 指令生成: {intent_cmd}")
 
-            # 2. 遍历每个候选区域，执行复现与验证
-            for idx, region in enumerate(regions):
-                print(f"[候选 {idx+1}/{len(regions)}] {region.get('type')} ({region.get('direction')})")
+            # --- 来源 2：让 VLM 补充视觉上的大滑动区域 ---
+            print(f"  -> 正在调用 VLM 分析纯视觉的可滑动区域 (Regions)...")
+            vlm_regions = self.vlm.analyze_slidable_regions(img_path)
+            if vlm_regions:
+                all_swipe_candidates.extend(vlm_regions)
+                
+            if not all_swipe_candidates:
+                print(f"  -> 此页面未发现任何滑动目标，跳过。")
+                continue
+
+            print(f"  => 汇总完成，该页面共有 {len(all_swipe_candidates)} 个滑动测试目标。准备执行...")
+
+            # 统一开始复现与验证
+            for idx, candidate in enumerate(all_swipe_candidates):
+                print(f"[执行 {idx+1}/{len(all_swipe_candidates)}] {candidate.get('category')} | 意图: {candidate.get('command')}")
                 
                 # 步骤 A：回放路径，让手机回到这个页面
                 print(f"    -> 正在重置 App 并沿着轨迹回放...")
@@ -70,8 +102,8 @@ class Phase2Swiper:
                 
                 # 步骤 C：执行滑动
                 swipe_params = self.controller.swipe_by_normalized_bbox(
-                    bbox=region['bbox'],
-                    direction=region['direction']
+                    bbox=candidate['bbox'],
+                    direction=candidate['direction']
                 )
                 
                 # 步骤 D：执行滑动后的截图
@@ -94,8 +126,10 @@ class Phase2Swiper:
                     {
                         "dataset_id": dataset_id,
                         "source_page": page_id,
-                        "intent": region.get('description', ''),
-                        "vlm_bbox": region['bbox'],
+                        "category": candidate.get('category'), # 区分是 component 还是 region
+                        "command": candidate.get('command'),   # 现在的 command 质量非常高
+                        # "intent": region.get('description', ''),
+                        "vlm_bbox": candidate['bbox'],
                         "swipe_params": swipe_params,
                         "before_image": str(final_before),
                         "after_image": str(final_after)
@@ -106,12 +140,12 @@ class Phase2Swiper:
 
                     action = {
                         "action": "swipe",
-                        "bbox": region['bbox'],
-                        "instruction": region.get('description', ''),
+                        "bbox": candidate['bbox'],
+                        "instruction": candidate.get('command', ''),
                         "start": convert([sx, sy]),
                         "end": convert([ex, ey]),
                         "duration": swipe_params['duration'],
-                        "direction": region.get('direction', '')
+                        # "direction": 默认不标记，后续根据坐标变化补充（如果是纯水平或纯垂直滑动的话） 
                     }
                        
                     if sx == ex:  # x不变，竖向滑动

@@ -68,6 +68,12 @@ class Phase1Explorer:
                     # 如果是新图，add_page 内部会把它移动到正式目录并重命名为 page_X.png
                     new_page_id = self.memory.add_page(temp_img, new_trajectory)
                     print(f"  -> ⭐ 发现新页面骨架! 记录为 {new_page_id}")
+
+                    # 由于当前App画面就在这个新页面，顺手提取一下XML里的可滑动组件
+                    new_page_node = self.memory.get_page(new_page_id)
+                    new_page_node.scrollable_components = self.controller.get_scrollable_elements_xml()
+                    print(f"     已提取并保存 {len(new_page_node.scrollable_components)} 个 XML 可滑动组件。")
+                    
                     queue.append(new_page_id)
                 else:
                     print(f"  -> 页面未产生结构性变化 (骨架匹配到 {matched_id})")

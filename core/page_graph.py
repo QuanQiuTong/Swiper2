@@ -10,6 +10,7 @@ class PageNode:
         self.skeleton_path = skeleton_path
         self.trajectory = trajectory
         self.visited_elements = set()
+        self.scrollable_components =[]
 
 class PageMemory:
     def __init__(self, package_name: str, similarity_threshold=0.85):
@@ -69,6 +70,7 @@ class PageMemory:
                 "page_id": p.page_id,
                 "image_path": p.image_path,
                 "skeleton_path": p.skeleton_path,
+                "scrollable_components": p.scrollable_components,
                 "trajectory": p.trajectory
             })
         
