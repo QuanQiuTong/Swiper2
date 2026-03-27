@@ -3,6 +3,7 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 from PIL import Image
 import json
 from pathlib import Path
+from core.prompts import prompt_slidable_regions, prompt_generate_intension
 
 class LocalVLMClient:
     def __init__(self, model_path=r"D:\Games\Qwen3-VL-4B-Instruct"):
@@ -28,17 +29,7 @@ class LocalVLMClient:
 
     def analyze_slidable_regions(self, image_path: str) -> list:
         """读取本地图片，本地跑前向推理，返回可滑动区域列表"""
-        prompt = """请仔细分析这张移动应用UI界面截图，找出所有可滑动的区域（如列表、轮播图、页面整体等）。
-只输出最多前4个可滑动区域的详细信息。
-对于每个区域，请提供：
-1. category: "slidable"
-2. type: 具体类型描述（如：列表、轮播图、大区块）
-3. direction: 滑动方向（"vertical" 或 "horizontal"）
-4. bbox: 边界框坐标[x1, y1, x2, y2]，x和y的范围是0到1000的归一化坐标
-5. description: 对该区域上滑动操作意图的描述
-
-请务必严格以JSON数组格式输出，每个元素是一个对象。只输出JSON，不要有其他文字说明。
-"""
+        prompt = prompt_slidable_regions
         try:
             print(f"  [LocalVLM] 正在分析图片: {Path(image_path).name} ...")
             image = Image.open(image_path).convert("RGB")
@@ -95,6 +86,32 @@ class LocalVLMClient:
         except Exception as e:
             print(f"  [LocalVLM] 推理发生错误: {e}")
             return[]
+
+    
+    def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
+        """专门为 Phase 1 从 XML 中找到的可滑动组件生成操作意图"""
+        # 将物理坐标转换为归一化坐标以辅助 VLM 定位
+        w, h = 1080, 2400 # 填入你的设备实际分辨率，或通过参数传入
+        norm_bbox =[int(bbox[0]/w*1000), int(bbox[1]/h*1000), int(bbox[2]/w*1000), int(bbox[3]/h*1000)]
+        
+        prompt = prompt_generate_intension.format(norm_bbox, direction, context_text)
+        
+        try:
+            image = Image.open(image_path).convert("RGB")
+            messages = [{"role": "user", "content":[{"type": "image", "image": image}, {"type": "text", "text": prompt}]}]
+            text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = self.processor(text=[text], images=[image], padding=True, return_tensors="pt").to(self.device)
+            
+            with torch.no_grad():
+                generated_ids = self.model.generate(**inputs, max_new_tokens=100, do_sample=False)
+            
+            trimmed_ids =[out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)]
+            response_text = self.processor.batch_decode(trimmed_ids, skip_special_tokens=True)[0].strip()
+            
+            return response_text
+        except Exception as e:
+            print(f"  [LocalVLM] 生成 XML 组件意图失败: {e}")
+            return f"沿 {direction} 方向滑动该组件"
 
     def _parse_json_response(self, text: str) -> list:
         """从大模型的文本中剥离并解析 JSON 数组"""

@@ -90,81 +90,71 @@ class Phase2Swiper:
 
             # 统一开始复现与验证
             for idx, candidate in enumerate(all_swipe_candidates):
-                print(f"[执行 {idx+1}/{len(all_swipe_candidates)}] {candidate.get('category')} | 意图: {candidate.get('command')}")
-                
-                # 步骤 A：回放路径，让手机回到这个页面
-                print(f"    -> 正在重置 App 并沿着轨迹回放...")
-                self.controller.replay_trajectory(self.package, trajectory)
-                
-                # 步骤 B：执行滑动前的截图
-                before_img = str(self.output_dir / "temp_before.png")
-                self.controller.take_screenshot(before_img)
-                
-                # 步骤 C：执行滑动
-                swipe_params = self.controller.swipe_by_normalized_bbox(
-                    bbox=candidate['bbox'],
-                    direction=candidate['direction']
-                )
-                
-                # 步骤 D：执行滑动后的截图
-                after_img = str(self.output_dir / "temp_after.png")
-                self.controller.take_screenshot(after_img)
-                
-                # 步骤 E：对比验证
-                is_success = calculate_image_diff(before_img, after_img, threshold=0.01)
-                
-                if is_success:
-                    print("    -> ✅ 验证成功！页面发生了实质性变化，保存为有效数据。")
-                    dataset_id = f"{page_id}_swipe_{idx}"
-                    final_before = self.output_dir / f"{dataset_id}_before.png"
-                    final_after = self.output_dir / f"{dataset_id}_after.png"
-                    
-                    shutil.move(before_img, final_before)
-                    shutil.move(after_img, final_after)
-                    
-                    # Old format for dataset entry, can be extended with more metadata if needed
-                    {
-                        "dataset_id": dataset_id,
-                        "source_page": page_id,
-                        "category": candidate.get('category'), # 区分是 component 还是 region
-                        "command": candidate.get('command'),   # 现在的 command 质量非常高
-                        # "intent": region.get('description', ''),
-                        "vlm_bbox": candidate['bbox'],
-                        "swipe_params": swipe_params,
-                        "before_image": str(final_before),
-                        "after_image": str(final_after)
-                    }
-
-                    sx, sy = swipe_params['start']
-                    ex, ey = swipe_params['end'] 
-
-                    action = {
-                        "action": "swipe",
-                        "bbox": candidate['bbox'],
-                        "instruction": candidate.get('command', ''),
-                        "start": convert([sx, sy]),
-                        "end": convert([ex, ey]),
-                        "duration": swipe_params['duration'],
-                        # "direction": 默认不标记，后续根据坐标变化补充（如果是纯水平或纯垂直滑动的话） 
-                    }
-                       
-                    if sx == ex:  # x不变，竖向滑动
-                        action['direction'] = "up" if sy > ey else "down"
-                    elif sy == ey:  # y不变，横向滑动
-                        action['direction'] = "left" if sx > ex else "right"
-                    else: # 并非纯水平或垂直滑动，暂不标记
-                        pass
-
-                    # 我们项目的数据结构
-                    self.successful_swipes.append({
-                        "img_filename": str(final_before),
-                        "action_data": action
-                    })
-                    self.save_dataset()
-                else:
-                    print("    -> ❌ 验证失败！滑动后页面无变化（可能已经到底部了或 VLM 误判）。丢弃该数据。")
+                self.validate_swipe(idx, candidate, page_id, trajectory)
 
         print(f"\n=== Phase 2 完成！共合成 {len(self.successful_swipes)} 条有效的高质量滑动数据。 ===")
+
+    def validate_swipe(self, idx, candidate, page_id, trajectory):
+        print(f"[执行 {idx+1}] {candidate.get('category')} | 意图: {candidate.get('command')}")
+        
+        # 步骤 A：回放路径，让手机回到这个页面
+        print(f"    -> 正在重置 App 并沿着轨迹回放...")
+        self.controller.replay_trajectory(self.package, trajectory)
+        
+        # 步骤 B：执行滑动前的截图
+        before_img = str(self.output_dir / "temp_before.png")
+        self.controller.take_screenshot(before_img)
+        
+        # 步骤 C：执行滑动
+        swipe_params = self.controller.swipe_by_normalized_bbox(
+            bbox=candidate['bbox'],
+            direction=candidate['direction']
+        )
+        
+        # 步骤 D：执行滑动后的截图
+        after_img = str(self.output_dir / "temp_after.png")
+        self.controller.take_screenshot(after_img)
+        
+        # 步骤 E：对比验证
+        is_success = calculate_image_diff(before_img, after_img, threshold=0.01)
+        
+        if is_success:
+            print("    -> ✅ 验证成功！页面发生了实质性变化，保存为有效数据。")
+            dataset_id = f"{page_id}_swipe_{idx}"
+            final_before = self.output_dir / f"{dataset_id}_before.png"
+            final_after = self.output_dir / f"{dataset_id}_after.png"
+            
+            shutil.move(before_img, final_before)
+            shutil.move(after_img, final_after)
+
+            sx, sy = swipe_params['start']
+            ex, ey = swipe_params['end'] 
+
+            action = {
+                "action": "swipe",
+                "bbox": candidate['bbox'],
+                "instruction": candidate.get('command', ''),
+                "start": convert([sx, sy]),
+                "end": convert([ex, ey]),
+                "duration": swipe_params['duration'],
+                # "direction": 默认不标记，后续根据坐标变化补充（如果是纯水平或纯垂直滑动的话） 
+            }
+                
+            if sx == ex:  # x不变，竖向滑动
+                action['direction'] = "up" if sy > ey else "down"
+            elif sy == ey:  # y不变，横向滑动
+                action['direction'] = "left" if sx > ex else "right"
+            else: # 并非纯水平或垂直滑动，暂不标记
+                pass
+
+            # 我们项目的数据结构
+            self.successful_swipes.append({
+                "img_filename": str(final_before),
+                "action_data": action
+            })
+            self.save_dataset()
+        else:
+            print("    -> ❌ 验证失败！滑动后页面无变化（可能已经到底部了或 VLM 误判）。丢弃该数据。")
 
     def save_dataset(self):
         out_file = self.output_dir / "swipe_dataset.json"
