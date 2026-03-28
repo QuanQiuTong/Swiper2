@@ -20,6 +20,31 @@ class PageMemory:
         # 创建属于该 App 的专属目录
         self.output_dir = Path("outputs") / package_name
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.json_file = self.output_dir / "memory_graph.json"
+
+    def load_from_disk(self) -> bool:
+        """从 JSON 恢复之前的探索进度"""
+        if not self.json_file.exists():
+            return False
+        try:
+            with open(self.json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            self.pages =[]
+            for item in data:
+                node = PageNode(
+                    page_id=item['page_id'],
+                    image_path=item['image_path'],
+                    skeleton_path=item['skeleton_path'],
+                    trajectory=item['trajectory']
+                )
+                node.scrollable_components = item.get('scrollable_components',[])
+                # 恢复已点击坐标的记忆集合
+                node.visited_elements = set(tuple(x) for x in item.get('visited_elements',[]))
+                self.pages.append(node)
+            return True
+        except Exception as e:
+            print(f"加载地图缓存失败: {e}")
+            return False
 
     def is_new_page(self, new_image_path: str):
         if not self.pages:
@@ -70,11 +95,11 @@ class PageMemory:
                 "page_id": p.page_id,
                 "image_path": p.image_path,
                 "skeleton_path": p.skeleton_path,
-                "scrollable_components": p.scrollable_components,
-                "trajectory": p.trajectory
+                "trajectory": p.trajectory,
+                "scrollable_components": getattr(p, 'scrollable_components',[]),
+                "visited_elements": list(p.visited_elements)  # 记录断点
             })
         
-        json_file = self.output_dir / "memory_graph.json"
-        with open(json_file, 'w', encoding='utf-8') as f:
+        with open(self.json_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"页面图谱已保存至: {json_file}")
+        print(f"页面图谱已保存至: {self.json_file}")

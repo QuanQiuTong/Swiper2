@@ -144,7 +144,7 @@ class UIAutomatorController:
         time.sleep(1)
         self.d.app_start(package_name)
         print(f"  [Device Controller] 已重置应用 {package_name}，等待完全启动")
-        time.sleep(9)
+        time.sleep(3)
 
     def replay_trajectory(self, package_name, trajectory):
         """
