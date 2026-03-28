@@ -97,9 +97,11 @@ class Phase2Swiper:
     def validate_swipe(self, idx, candidate, page_id, trajectory):
         print(f"[执行 {idx+1}] {candidate.get('category')} | 意图: {candidate.get('command')}")
         
-        # 步骤 A：回放路径，让手机回到这个页面
-        print(f"    -> 正在重置 App 并沿着轨迹回放...")
-        self.controller.replay_trajectory(self.package, trajectory)
+        # 步骤 A：交由底层控制器去沿着轨迹步进并逐级校验！
+        print(f"    -> 正在重置 App 并沿着轨迹安全步进回放...")
+        if not self.controller.replay_trajectory(self.package, trajectory):
+            print("    -> ❌ 无法稳定回放至目标页面，为保证数据纯净，放弃此条滑动数据！")
+            return
         
         # 步骤 B：执行滑动前的截图
         before_img = str(self.output_dir / "temp_before.png")

@@ -5,6 +5,7 @@ import os
 import cv2
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from utils.image_utils import ImageUtils
 
 class UIAutomatorController:
     def __init__(self, device_serial=None):
@@ -143,17 +144,58 @@ class UIAutomatorController:
         time.sleep(1)
         self.d.app_start(package_name)
         print(f"  [Device Controller] 已重置应用 {package_name}，等待完全启动")
-        time.sleep(3)
+        time.sleep(9)
 
     def replay_trajectory(self, package_name, trajectory):
-        """重新启动 App 并回放轨迹"""
+        """
+        重置 App，并带有步进状态校验的轨迹回放。
+        每执行一步，都会动态校验是否到达了预期的中间页面状态。
+        """
         self.reset_app(package_name)
-        for action in trajectory:
-            # 回放时可以稍微快一点，因为这些路径我们确认过了
-            self.click(action['x'], action['y'], delay=1.0)
         
-        # 【关键修复】回放结束后，多等 2 秒，确保最终目标页面彻底加载完毕！
-        time.sleep(2.0)
+        # 确保用于步进校验的临时目录存在
+        temp_dir = Path("outputs") / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        for step_idx, action in enumerate(trajectory):
+            # 点击当前步
+            self.click(action['x'], action['y'], delay=1.0)
+            
+            expected_path = action.get('expected_image_path')
+            if not expected_path or not os.path.exists(expected_path):
+                # 兼容老数据：如果没有预期截图路径，退化为硬等待
+                time.sleep(2.0)
+                continue
+                
+            # --- 动态轮询校验当前步的页面状态 ---
+            max_retries = 3
+            wait_time = 2.0
+            step_success = False
+            
+            for attempt in range(max_retries):
+                verify_img = str(temp_dir / f"verify_step_{step_idx}_{int(time.time())}.png")
+                self.take_screenshot(verify_img) # 同样会触发打码，保证比对的一致性
+                
+                # 计算当前屏幕与预期画面的骨架相似度
+                sim = ImageUtils.calculate_skeleton_similarity(verify_img, expected_path)
+                
+                if os.path.exists(verify_img):
+                    os.remove(verify_img) # 清理临时文件
+                    
+                if sim >= 0.85: # 相似度阈值
+                    if attempt > 0:
+                        print(f"      -> 步进 {step_idx+1}/{len(trajectory)} 加载成功 (耗时 ~{attempt * wait_time}s)")
+                    step_success = True
+                    break
+                    
+                print(f"      -> ⏳ 步进 {step_idx+1}/{len(trajectory)} 校验未通过 (相似度 {sim:.2f})，等待 {wait_time}s 重试 ({attempt+1}/{max_retries})...")
+                time.sleep(wait_time)
+                
+            if not step_success:
+                print(f"    -> ❌ 轨迹回放失败于第 {step_idx+1} 步: {action.get('desc', '未知操作')}")
+                return False
+                
+        return True
     
     def swipe_by_normalized_bbox(self, bbox: list, direction: str, duration=0.3):
         """
