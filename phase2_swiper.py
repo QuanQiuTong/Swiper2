@@ -10,32 +10,32 @@ class Phase2Swiper:
     def __init__(self, package_name: str, use_local_vlm=True):
         self.package = package_name
         self.controller = UIAutomatorController()
-        
+
         if use_local_vlm:
             from core.local_vlm import LocalVLMClient
             self.vlm = LocalVLMClient(model_path=r"D:\Games\Qwen3-VL-4B-Instruct")
         else:
             from core.vlm_client import VLMClient
             self.vlm = VLMClient(server_url="http://127.0.0.1:8000")
-        
+
         # Phase 1 骨架构建完成后的页面存档路径
         self.input_dir = Path("outputs") / self.package
         self.memory_file = self.input_dir / "memory_graph.json"
-        
+
         # Phase 2 成功执行并验证的滑动数据集输出目录
         self.output_dir = Path("outputs") / f"{self.package}_dataset"
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.temp_dir = Path("outputs") / "temp"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # === 【断点续传核心变量】 ===
         self.dataset_file = self.output_dir / "swipe_dataset.json"
         self.progress_file = self.output_dir / "phase2_progress.json"
-        
+
         self.successful_swipes =[]
         self.processed_pages = set()
-        
+
         self._load_resume_data()
 
     def _load_resume_data(self):
@@ -74,28 +74,28 @@ class Phase2Swiper:
         # 当场截取当前实时画面
         live_img_path = str(self.temp_dir / f"live_{page_id}.png")
         self.controller.take_screenshot(live_img_path)
-        
+
         all_swipe_candidates =[]
 
         # --- 来源 1：提取 Phase 1 中 XML 找到的组件 ---
         # 当场提取 XML 可滑动组件
         print(f"  -> 正在当场提取实时 XML 组件...")
         xml_components = self.controller.get_scrollable_elements_xml()
-        
+
         if xml_components:
             print(f"  -> 发现 {len(xml_components)} 个 XML 可滑动组件，请求意图指令...")
             for comp in xml_components:
                 intent_cmd = self.vlm.generate_intent_for_xml_component(
                     live_img_path, comp['bounds'], comp['direction'], comp['text']
                 )
-                
+
                 # 坐标转换：把 XML 的物理坐标转成归一化坐标送进待测队列
                 w, h = self.controller.window_size
                 norm_bbox = [
                     int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
                     int(comp['bounds'][2]/w*1000), int(comp['bounds'][3]/h*1000)
                 ] # norm_bbox = self.controller.bbox_relative(comp['bounds'])
-                
+
                 all_swipe_candidates.append({
                     "category": "component",
                     "type": "XML Component",
@@ -111,6 +111,7 @@ class Phase2Swiper:
         if vlm_regions:
             all_swipe_candidates.extend(vlm_regions)
 
+        print(f"  => 汇总完成，该页面实时产生 {len(all_swipe_candidates)} 个测试目标。")
         return all_swipe_candidates
 
     def run_synthesis(self):
@@ -120,46 +121,36 @@ class Phase2Swiper:
 
         for page in pages:
             page_id = page['page_id']
-            
+
             # 断点续传
             if page_id in self.processed_pages:
-                print(f"\n--- ⏭️ 节点 {page_id} 此前已处理完毕，自动跳过 ---")
+                print(f"--- ⏭️ 节点 {page_id} 此前已处理完毕，自动跳过 ---")
                 continue
-                
+
             img_path = page['image_path']
             trajectory = page['trajectory']
-            
+
             print(f"\n==================================================")
             print(f"--- 正在处理节点: {page_id} ---")
-            
+
             # 先通过轨迹到达目标页面 (关闭强校验，适应动态内容)
             print(f"  -> 正在沿着轨迹前往目标页面...")
             if not self.controller.replay_trajectory_unverified(self.package, trajectory):
                 print(f"  -> ❌ 回放时跳出了目标 App ，跳过此页面。")
                 continue
-                
+
             # 【防抖补丁 1】：让 VLM 分析前，确保页面彻底加载出内容
             self.controller.wait_for_loading_to_finish()
-            
+
             swipe_candidates = self.get_swipe_candidates(page_id)
-                
-            if not swipe_candidates:
-                print(f"  -> 当前画面未发现任何滑动目标，跳过。")
-                # 即便没有滑动目标，这个页面也算查过了，保存进度
-                self.save_progress(page_id)
-                continue
 
-            print(f"  => 汇总完成，该页面实时产生 {len(swipe_candidates)} 个测试目标。")
-
-            for idx, candidate in enumerate(swipe_candidates):
+            for idx, candidate in enumerate(swipe_candidates): # 注意：这里的 idx 是针对每个页面独立计数的，确保了即使中途重启也不会重复执行同一个目标
                 if idx > 0:
                     print(f"\n    -> 重置状态，重新前往目标页面...")
                     if not self.controller.replay_trajectory_unverified(self.package, trajectory):
                         print(f"  -> ❌ 回放时跳出了目标 App ，跳过此页面。")
                         continue
-                        
                 self.validate_swipe(idx, candidate, page_id)
-
 
             # === 【断点续传：页面完结记录】 ===
             # 当这个页面的所有 candidates 都测完后，记录该页面彻底完成
@@ -170,7 +161,7 @@ class Phase2Swiper:
 
     def validate_swipe(self, idx, candidate, page_id):
         print(f"\n[执行 {idx+1}] {candidate.get('category')} | 意图: {candidate.get('command')}")
-        
+
         # 【防抖补丁 2】：这是阻断假阳性最核心的一道墙！
         # 在截取滑动前的参照图之前，必须保证页面已经彻底没有在 Loading 状态了
         self.controller.wait_for_loading_to_finish()
@@ -178,29 +169,29 @@ class Phase2Swiper:
         # 步骤 B：执行滑动前的截图
         before_img = str(self.output_dir / "temp_before.png")
         self.controller.take_screenshot(before_img)
-        
+
         # 步骤 C：执行滑动
         swipe_params = self.controller.swipe_by_normalized_bbox(
             bbox=candidate['bbox'],
             direction=candidate['direction']
         )
-        
+
         # 步骤 D：执行滑动后的截图
         # 滑动后通常会拉取新数据，为了确保新数据渲染出来能被 diff 侦测到，
         # 在这里也等一下加载！
         self.controller.wait_for_loading_to_finish(timeout=4)
         after_img = str(self.output_dir / "temp_after.png")
         self.controller.take_screenshot(after_img)
-        
+
         # 步骤 E：对比验证
         is_success = calculate_image_diff(before_img, after_img, threshold=0.01)
-        
+
         if is_success:
             print("    -> ✅ 验证成功！保存数据。")
             dataset_id = f"{page_id}_swipe_{idx}"
             final_before = self.output_dir / f"{dataset_id}_before.png"
             final_after = self.output_dir / f"{dataset_id}_after.png"
-            
+
             shutil.move(before_img, final_before)
             shutil.move(after_img, final_after)
 
@@ -216,7 +207,7 @@ class Phase2Swiper:
                 "duration": swipe_params['duration'],
                 # "direction": 默认不标记，后续根据坐标变化补充（如果是纯水平或纯垂直滑动的话） 
             }
-                
+
             if sx == ex:    # x不变，竖向滑动
                 action['direction'] = "up" if sy > ey else "down"
             elif sy == ey:  # y不变，横向滑动
@@ -224,10 +215,9 @@ class Phase2Swiper:
             else:           # 并非纯水平或垂直滑动，暂不标记
                 pass
 
-            self.successful_swipes.append({
-                "img_filename": str(final_before),
-                "action_data": action
-            })
+            self.successful_swipes.append(
+                {"img_filename": str(final_before), "action_data": action}
+            )
             self.save_dataset()
         else:
             print("    -> ❌ 验证失败！滑动后页面无变化。丢弃该数据。")
@@ -236,7 +226,7 @@ class Phase2Swiper:
         # === 【防止断点续传产生重复数据：基于文件名去重】 ===
         unique_swipes = {s['img_filename']: s for s in self.successful_swipes}
         self.successful_swipes = list(unique_swipes.values())
-        
+
         with open(self.dataset_file, 'w', encoding='utf-8') as f:
             json.dump(self.successful_swipes, f, ensure_ascii=False, indent=2)
         print(f"当前已成功合成 {len(self.successful_swipes)} 条滑动数据，保存至: {self.dataset_file}")

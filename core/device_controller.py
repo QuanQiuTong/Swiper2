@@ -324,7 +324,10 @@ class UIAutomatorController:
         
         # 常见的代表"加载中"的资源 ID 关键字
         # resource-id="com.twitter.android:id/list_progress" class="android.widget.ProgressBar"
-        loading_keywords = ['progress', 'loading', 'spinner', 'refresh']
+        loading_keywords = [
+            'progress', 'spinner', 'refresh',
+            # 'loading', # 先去掉，误伤了 fleetline_loading_holder
+        ]
         
         while time.time() - start_time < timeout:
             is_loading = False
