@@ -1,3 +1,29 @@
+PACKAGE_INSTALLED = {
+    # "DeepSeek": "com.deepseek.chat",      # √
+    # "Wiser": "com.wisernow.android",      # 没多少页面，还充满了广告，不推荐。
+    # "Perplexity": "ai.perplexity.app.android",
+    
+    # "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
+
+    # "Reddit": "com.reddit.frontpage",     # √
+    # "X/Twitter": "com.twitter.android",   # √
+    # "Threads": "com.instagram.barcelona", # 需要 Instagram 账号登录，暂不适合自动化测试
+    # "Spotify": "com.spotify.music",       # √
+
+    "ChatGPT": "com.openai.chatgpt",
+    "Perplexity": "ai.perplexity.app.android", # 新
+    "Whatsapp": "com.whatsapp.w4b",
+    "Manus": "tech.butterfly.app",  # Manus AI 办公助手，2025年新兴的效率工具，界面复杂且充满动态内容，非常适合测试 SoM 能力。
+    "Gemini": "com.google.android.googlequicksearchbox", #
+    "Youtube": "com.google.android.youtube",
+    "Copilot": "com.microsoft.copilot", # Microsoft Copilot App，2025年新发布的 AI 办公助手，界面复杂且充满动态内容，非常适合测试 SoM 能力。
+    "Discord": "com.discord", # 新
+    
+    "Finch": "com.finch.finch", # 新
+}
+
+
+
 PACKAGE_ANDROID_WORLD = {
         # "Settings": "com.android.settings",               # 系统设置
         # "Calculator": "com.google.android.calculator",    # 计算器 (Pixel默认)
@@ -53,18 +79,4 @@ PACKAGE_HOT_CN = {
     "Meituan": "com.sankuai.meituan",              # 美团 (首页堪称功能入口大满贯，测试SoM极限)
     "Taobao": "com.taobao.taobao",                 # 淘宝 (瀑布流与复杂卡片的终极考验)
     "NetEase Music": "com.netease.cloudmusic",     # 网易云音乐 (转盘UI，复杂的播放页)
-}
-
-PACKAGE_INSTALLED = {
-    # "DeepSeek": "com.deepseek.chat",      # √
-    # "Wiser": "com.wisernow.android",      # 没多少页面，还充满了广告，不推荐。
-    # "Perplexity": "ai.perplexity.app.android",
-    # "ChatGPT": "com.openai.chatgpt",      # 假设的官方 ChatGPT App 包名
-    # "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
-
-    # "Reddit": "com.reddit.frontpage",     # √
-    # "X/Twitter": "com.twitter.android",   # √
-    # "Threads": "com.instagram.barcelona", # 需要 Instagram 账号登录，暂不适合自动化测试
-    "Spotify": "com.spotify.music",
-
 }

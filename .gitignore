@@ -13,3 +13,5 @@ screenshots
 summary
 
 explore1.py
+
+*.log

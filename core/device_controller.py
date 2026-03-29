@@ -48,6 +48,13 @@ class UIAutomatorController:
             for node in root.iter('node'):
                 # 寻找 clickable 为 true 的节点
                 if node.attrib.get('clickable') == 'true':
+                    # 如果涉及 account，直接跳过，以免切换账号
+                    text = node.attrib.get('text', '').lower()
+                    desc = node.attrib.get('content-desc', '').lower()
+                    res_id = node.attrib.get('resource-id', '').lower()
+                    if 'account' in text or 'account' in desc or 'account' in res_id:
+                        continue
+
                     bounds_str = node.attrib.get('bounds')
                     if not bounds_str: continue
                         
