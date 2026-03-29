@@ -18,10 +18,6 @@ class Phase2Swiper:
             from core.vlm_client import VLMClient
             self.vlm = VLMClient(server_url="http://127.0.0.1:8000")
 
-        # Phase 1 骨架构建完成后的页面存档路径
-        self.input_dir = Path("outputs") / self.package
-        self.memory_file = self.input_dir / "memory_graph.json"
-
         # Phase 2 成功执行并验证的滑动数据集输出目录
         self.output_dir = Path("outputs") / f"{self.package}_dataset"
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -63,9 +59,11 @@ class Phase2Swiper:
             json.dump(list(self.processed_pages), f, ensure_ascii=False, indent=2)
 
     def load_memory(self):
-        if not self.memory_file.exists():
-            raise FileNotFoundError(f"找不到 Phase 1 的地图数据: {self.memory_file}")
-        with open(self.memory_file, 'r', encoding='utf-8') as f:
+        # Phase 1 骨架构建完成后的页面存档路径
+        memory_file = Path("outputs") / self.package / "memory_graph.json"
+        if not memory_file.exists():
+            raise FileNotFoundError(f"找不到 Phase 1 的地图数据: {memory_file}")
+        with open(memory_file, 'r', encoding='utf-8') as f:
             return json.load(f)
 
     def get_swipe_candidates(self, page_id):
@@ -78,7 +76,6 @@ class Phase2Swiper:
         all_swipe_candidates =[]
 
         # --- 来源 1：提取 Phase 1 中 XML 找到的组件 ---
-        # 当场提取 XML 可滑动组件
         print(f"  -> 正在当场提取实时 XML 组件...")
         xml_components = self.controller.get_scrollable_elements_xml()
 
@@ -131,7 +128,7 @@ class Phase2Swiper:
             trajectory = page['trajectory']
 
             print(f"\n==================================================")
-            print(f"--- 正在处理节点: {page_id} ---")
+            print(f"--- 正在处理节点: {page_id} / {len(pages)} ---")
 
             # 先通过轨迹到达目标页面 (关闭强校验，适应动态内容)
             print(f"  -> 正在沿着轨迹前往目标页面...")
@@ -162,8 +159,7 @@ class Phase2Swiper:
     def validate_swipe(self, idx, candidate, page_id):
         print(f"\n[执行 {idx+1}] {candidate.get('category')} | 意图: {candidate.get('command')}")
 
-        # 【防抖补丁 2】：这是阻断假阳性最核心的一道墙！
-        # 在截取滑动前的参照图之前，必须保证页面已经彻底没有在 Loading 状态了
+        # 【防抖补丁 2】在截取滑动前的参照图之前，必须保证页面已经彻底没有在 Loading 状态了
         self.controller.wait_for_loading_to_finish()
 
         # 步骤 B：执行滑动前的截图
@@ -223,7 +219,7 @@ class Phase2Swiper:
             print("    -> ❌ 验证失败！滑动后页面无变化。丢弃该数据。")
 
     def save_dataset(self):
-        # === 【防止断点续传产生重复数据：基于文件名去重】 ===
+        # 基于文件名去重，防止断点续传产生重复数据
         unique_swipes = {s['img_filename']: s for s in self.successful_swipes}
         self.successful_swipes = list(unique_swipes.values())
 
