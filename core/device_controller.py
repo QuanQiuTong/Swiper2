@@ -61,7 +61,7 @@ class UIAutomatorController:
                     cx = (x1 + x2) // 2
                     cy = (y1 + y2) // 2
                     
-                    # 【核心改进】调用递归函数，把容器肚子里的字全部榨取出来
+                    # 递归把容器肚子里的字全部榨取出来
                     aggregated_texts = self._extract_all_text_from_node(node)
                     
                     # 拼接成一个具有描述性的字符串
@@ -89,8 +89,9 @@ class UIAutomatorController:
         
         # 可以根据你查看到的 XML，随时在这里补充敏感词
         sensitive_keywords =[
-            'avatar', 'profile', 'username', 'email', 'phone', 
+            'avatar', 'profile', 'username', 'email', 
             'account', 'password', 'sign in', 'log in', 
+            # 'phone', 会把左上角状态栏的时间和通知图标涂黑，其实不需要？
             # 'show navigation drawer' # <-- 针对 Twitter 头像，但会把上面全部涂黑。
         ]
         
@@ -108,9 +109,9 @@ class UIAutomatorController:
             root = ET.fromstring(xml_dump)
             
             for node in root.iter('node'):
-                text = (node.attrib.get('text') or '').lower()
-                desc = (node.attrib.get('content-desc') or '').lower()
-                res_id = (node.attrib.get('resource-id') or '').lower()
+                text = node.attrib.get('text', '').lower()
+                desc = node.attrib.get('content-desc', '').lower()
+                res_id = node.attrib.get('resource-id', '').lower()
                 
                 # 明确找出命中的是哪一个敏感词，将其作为“打码原因”
                 matched_kw = None
@@ -161,14 +162,13 @@ class UIAutomatorController:
         self.d.app_stop(package_name)
         time.sleep(0.5)
         self.d.app_start(package_name)
-        time.sleep(2)
+        time.sleep(1.5)
         for attempt in range(6):
             if self.get_current_package() == package_name:
                 print(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
                 return
-            else:
-                print(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
-                time.sleep(1)
+            print(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
+            time.sleep(1)
         raise RuntimeError(f"应用 {package_name} 启动失败，请检查设备状态。")
 
     def replay_trajectory(self, package_name, trajectory):
