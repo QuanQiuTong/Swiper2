@@ -21,3 +21,5 @@ python summary.py
 ```
 summary.py会将它们整理到`./summary`目录下并重命名。只包括滑动前的截图。  
 需要滑动后的截图则可以将summary.py中的SAVE_AFTER设置为True。
+
+*为了方便也可以运行`explore_and_summary.py`，不过容易搞乱文件结构*
