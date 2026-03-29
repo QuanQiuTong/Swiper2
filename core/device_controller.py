@@ -5,7 +5,7 @@ import os
 import cv2
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from utils.image_utils import ImageUtils
+from utils.image_utils import ImageUtils, mask
 
 SIM_THRESHOLD = 0.60
 class UIAutomatorController:
@@ -82,6 +82,7 @@ class UIAutomatorController:
         """
         截图并打码：使用原生 dump_hierarchy，完美绕过 XPath 限制。
         同时保存当前页面的 XML 文件，方便调试与后续数据集使用。
+        增加视觉增强：黑色背景 + 白色边框 + 匿名化原因文本。
         """
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         self.d.screenshot(output_path)
@@ -92,7 +93,9 @@ class UIAutomatorController:
             'account', 'password', 'sign in', 'log in', 
             # 'show navigation drawer' # <-- 针对 Twitter 头像，但会把上面全部涂黑。
         ]
-        boxes_to_mask =[]
+        
+        img = cv2.imread(output_path)
+        count = 0
         
         try:
             xml_dump = self.d.dump_hierarchy()
@@ -109,28 +112,30 @@ class UIAutomatorController:
                 desc = (node.attrib.get('content-desc') or '').lower()
                 res_id = (node.attrib.get('resource-id') or '').lower()
                 
-                if any(kw in text for kw in sensitive_keywords) or \
-                   any(kw in desc for kw in sensitive_keywords) or \
-                   any(kw in res_id for kw in sensitive_keywords):
-                    
+                # 明确找出命中的是哪一个敏感词，将其作为“打码原因”
+                matched_kw = None
+                for kw in sensitive_keywords:
+                    if kw in text or kw in desc or kw in res_id:
+                        matched_kw = kw
+                        break
+                
+                if matched_kw:
                     bounds_str = node.attrib.get('bounds')
                     if bounds_str:
                         bounds_str = bounds_str.replace('][', ',').replace('[', '').replace(']', '')
                         coords = list(map(int, bounds_str.split(',')))
                         if len(coords) == 4:
-                            boxes_to_mask.append(coords)
+                            # 把坐标和命中原因传给打码函数
+                            mask(img, coords, matched_kw.upper())
+                            count += 1
+                            
         except Exception as e:
-            print(f"  [Anonymize] XML解析异常: {e}")
-            
-        if boxes_to_mask:
-            img = cv2.imread(output_path)
-            for box in boxes_to_mask:
-                x1, y1, x2, y2 = box
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 0), -1)
-            # 原图移动到_original.png，打码图覆盖原图
-            # os.rename(output_path, output_path.replace(".png", "_original.png"))
+            print(f"[Anonymize] XML解析异常: {e}")
+
+        # 只有在真正发生了打码时，才重新覆写图片，节省磁盘 I/O
+        if count > 0:
             cv2.imwrite(output_path, img)
-            print(f"  [Anonymize] 成功为 {len(boxes_to_mask)} 处敏感区域打码。")
+            print(f"  [Anonymize] 成功为 {count} 处敏感区域进行可解释性打码。")
             
         return output_path
 
@@ -159,11 +164,12 @@ class UIAutomatorController:
         time.sleep(2)
         for attempt in range(6):
             if self.get_current_package() == package_name:
-                break
+                print(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
+                return
             else:
-                print(f"  [Device Controller] 等待应用启动... (尝试 {attempt+1})")
+                print(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
                 time.sleep(1)
-        print(f"  [Device Controller] 应用 {package_name} 已启动，准备就绪。")
+        raise RuntimeError(f"应用 {package_name} 启动失败，请检查设备状态。")
 
     def replay_trajectory(self, package_name, trajectory):
         """
