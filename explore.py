@@ -8,7 +8,6 @@ for name, pkg in PACKAGE_INSTALLED.items():
     explorer = Phase1Explorer(package_name=pkg, max_depth=2)
     explorer.run_exploration()
 
-for name, pkg in PACKAGE_INSTALLED.items():
     print(f"\n=== 合成滑动数据: {name} ({pkg}) ===")
     swiper = Phase2Swiper(package_name=pkg, use_local_vlm=False)
     swiper.run_synthesis()
