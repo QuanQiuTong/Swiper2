@@ -314,3 +314,59 @@ class UIAutomatorController:
             print(f"解析 XML 获取滑动节点失败: {e}")
             
         return elements
+    
+    def wait_for_loading_to_finish(self, timeout=8):
+        """
+        通过分析 XML 树，智能判断当前页面是否仍在显示加载动画（如菊花图、进度条）。
+        如果是，则主动阻塞等待，直到加载完成或超时，以防止产生“假阳性”数据。
+        """
+        start_time = time.time()
+        
+        # 常见的代表"加载中"的资源 ID 关键字
+        # resource-id="com.twitter.android:id/list_progress" class="android.widget.ProgressBar"
+        loading_keywords = ['progress', 'loading', 'spinner', 'refresh']
+        
+        while time.time() - start_time < timeout:
+            is_loading = False
+            try:
+                xml_dump = self.d.dump_hierarchy()
+                root = ET.fromstring(xml_dump)
+                
+                for node in root.iter('node'):
+                    cls = node.attrib.get('class', '')
+                    res_id = node.attrib.get('resource-id', '').lower()
+                    
+                    # 1. 严格匹配 Android 原生的进度转圈组件
+                    if cls == 'android.widget.ProgressBar':
+                        # 排除掉视频/音频播放器的横向进度条（SeekBar 通常是另一个类，但有些魔改的播放器也会用 ProgressBar）
+                        # 我们可以通过长宽比过滤掉细长的播放进度条，只拦截方形的“菊花图”
+                        bounds_str = node.attrib.get('bounds')
+                        if bounds_str:
+                            bounds_str = bounds_str.replace('][', ',').replace('[', '').replace(']', '')
+                            x1, y1, x2, y2 = map(int, bounds_str.split(','))
+                            w, h = x2 - x1, y2 - y1
+                            # 如果宽高比接近1（方形），且面积不太大，通常是 Loading 菊花图
+                            if 0.5 < (w / (h + 0.1)) < 2.0:
+                                is_loading = True
+                                break
+                                
+                    # 2. 匹配开发者命名的 ID (如 list_progress)
+                    if any(kw in res_id for kw in loading_keywords):
+                        # 排除掉明确不是 Loading 的组件
+                        if 'seekbar' not in cls.lower(): 
+                            is_loading = True
+                            break
+                            
+            except Exception:
+                pass
+                
+            if not is_loading:
+                # 确认没有加载框后，再额外硬等待 1 秒，给网络图片留一点渲染时间
+                # time.sleep(1.0)
+                return True
+                
+            print(f"      -> ⏳ 检测到页面正在异步加载 (Loading)... 阻塞等待中...")
+            time.sleep(1.0)
+            
+        print("      -> ⚠️ 等待加载超时，强制继续执行。")
+        return False

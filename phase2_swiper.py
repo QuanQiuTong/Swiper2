@@ -68,6 +68,51 @@ class Phase2Swiper:
         with open(self.memory_file, 'r', encoding='utf-8') as f:
             return json.load(f)
 
+    def get_swipe_candidates(self, page_id):
+        """获取当前页面的滑动候选目标，来源于 XML 组件和 VLM 视觉分析"""
+
+        # 当场截取当前实时画面
+        live_img_path = str(self.temp_dir / f"live_{page_id}.png")
+        self.controller.take_screenshot(live_img_path)
+        
+        all_swipe_candidates =[]
+
+        # --- 来源 1：提取 Phase 1 中 XML 找到的组件 ---
+        # 当场提取 XML 可滑动组件
+        print(f"  -> 正在当场提取实时 XML 组件...")
+        xml_components = self.controller.get_scrollable_elements_xml()
+        
+        if xml_components:
+            print(f"  -> 发现 {len(xml_components)} 个 XML 可滑动组件，请求意图指令...")
+            for comp in xml_components:
+                intent_cmd = self.vlm.generate_intent_for_xml_component(
+                    live_img_path, comp['bounds'], comp['direction'], comp['text']
+                )
+                
+                # 坐标转换：把 XML 的物理坐标转成归一化坐标送进待测队列
+                w, h = self.controller.window_size
+                norm_bbox = [
+                    int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
+                    int(comp['bounds'][2]/w*1000), int(comp['bounds'][3]/h*1000)
+                ] # norm_bbox = self.controller.bbox_relative(comp['bounds'])
+                
+                all_swipe_candidates.append({
+                    "category": "component",
+                    "type": "XML Component",
+                    "direction": comp['direction'],
+                    "bbox": norm_bbox,
+                    "command": intent_cmd
+                })
+                print(f"     [组件] 指令生成: {intent_cmd}")
+
+        # --- 来源 2：让 VLM 补充视觉上的大滑动区域 ---
+        print(f"  -> 正在调用 VLM 分析纯视觉的可滑动区域 (Regions)...")
+        vlm_regions = self.vlm.analyze_slidable_regions(live_img_path)
+        if vlm_regions:
+            all_swipe_candidates.extend(vlm_regions)
+
+        return all_swipe_candidates
+
     def run_synthesis(self):
         print(f"=== 启动 Phase 2 滑动数据合成流水线 (App: {self.package}) ===")
         pages = self.load_memory()
@@ -76,7 +121,7 @@ class Phase2Swiper:
         for page in pages:
             page_id = page['page_id']
             
-            # === 【断点续传跳过逻辑】 ===
+            # 断点续传
             if page_id in self.processed_pages:
                 print(f"\n--- ⏭️ 节点 {page_id} 此前已处理完毕，自动跳过 ---")
                 continue
@@ -93,55 +138,20 @@ class Phase2Swiper:
                 print(f"  -> ❌ 回放时跳出了目标 App ，跳过此页面。")
                 continue
                 
-            # 当场截取当前实时画面
-            live_img_path = str(self.temp_dir / f"live_{page_id}.png")
-            self.controller.take_screenshot(live_img_path)
+            # 【防抖补丁 1】：让 VLM 分析前，确保页面彻底加载出内容
+            self.controller.wait_for_loading_to_finish()
             
-            all_swipe_candidates =[]
-            
-            # --- 来源 1：提取 Phase 1 中 XML 找到的组件 ---
-            # 当场提取 XML 可滑动组件
-            print(f"  -> 正在当场提取实时 XML 组件...")
-            xml_components = self.controller.get_scrollable_elements_xml()
-            
-            if xml_components:
-                print(f"  -> 发现 {len(xml_components)} 个 XML 可滑动组件，请求意图指令...")
-                for comp in xml_components:
-                    intent_cmd = self.vlm.generate_intent_for_xml_component(
-                        live_img_path, comp['bounds'], comp['direction'], comp['text']
-                    )
-                    
-                    # 坐标转换：把 XML 的物理坐标转成归一化坐标送进待测队列
-                    w, h = self.controller.window_size
-                    norm_bbox = [
-                        int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
-                        int(comp['bounds'][2]/w*1000), int(comp['bounds'][3]/h*1000)
-                    ]
-                    
-                    all_swipe_candidates.append({
-                        "category": "component",
-                        "type": "XML Component",
-                        "direction": comp['direction'],
-                        "bbox": norm_bbox,
-                        "command": intent_cmd
-                    })
-                    print(f"     [组件] 指令生成: {intent_cmd}")
-
-            # --- 来源 2：让 VLM 补充视觉上的大滑动区域 ---
-            print(f"  -> 正在调用 VLM 分析纯视觉的可滑动区域 (Regions)...")
-            vlm_regions = self.vlm.analyze_slidable_regions(live_img_path)
-            if vlm_regions:
-                all_swipe_candidates.extend(vlm_regions)
+            swipe_candidates = self.get_swipe_candidates(page_id)
                 
-            if not all_swipe_candidates:
+            if not swipe_candidates:
                 print(f"  -> 当前画面未发现任何滑动目标，跳过。")
                 # 即便没有滑动目标，这个页面也算查过了，保存进度
                 self.save_progress(page_id)
                 continue
 
-            print(f"  => 汇总完成，该页面实时产生 {len(all_swipe_candidates)} 个测试目标。")
+            print(f"  => 汇总完成，该页面实时产生 {len(swipe_candidates)} 个测试目标。")
 
-            for idx, candidate in enumerate(all_swipe_candidates):
+            for idx, candidate in enumerate(swipe_candidates):
                 if idx > 0:
                     print(f"\n    -> 重置状态，重新前往目标页面...")
                     if not self.controller.replay_trajectory_unverified(self.package, trajectory):
@@ -161,6 +171,10 @@ class Phase2Swiper:
     def validate_swipe(self, idx, candidate, page_id):
         print(f"\n[执行 {idx+1}] {candidate.get('category')} | 意图: {candidate.get('command')}")
         
+        # 【防抖补丁 2】：这是阻断假阳性最核心的一道墙！
+        # 在截取滑动前的参照图之前，必须保证页面已经彻底没有在 Loading 状态了
+        self.controller.wait_for_loading_to_finish()
+
         # 步骤 B：执行滑动前的截图
         before_img = str(self.output_dir / "temp_before.png")
         self.controller.take_screenshot(before_img)
@@ -172,6 +186,9 @@ class Phase2Swiper:
         )
         
         # 步骤 D：执行滑动后的截图
+        # 滑动后通常会拉取新数据，为了确保新数据渲染出来能被 diff 侦测到，
+        # 在这里也等一下加载！
+        self.controller.wait_for_loading_to_finish(timeout=4)
         after_img = str(self.output_dir / "temp_after.png")
         self.controller.take_screenshot(after_img)
         
