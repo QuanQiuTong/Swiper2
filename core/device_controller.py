@@ -3,6 +3,7 @@ import uiautomator2 as u2
 import time
 import os
 import cv2
+import logging
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from utils.image_utils import ImageUtils, mask
@@ -11,7 +12,7 @@ SIM_THRESHOLD = 0.60
 class UIAutomatorController:
     def __init__(self, device_serial=None):
         self.d = u2.connect(device_serial)
-        print(f"已连接设备: {self.d.info}")
+        logging.info(f"已连接设备: {self.d.info}")
         self.window_size = self.d.window_size()
 
     def _extract_all_text_from_node(self, node):
@@ -74,7 +75,7 @@ class UIAutomatorController:
                         'resourceId': node.attrib.get('resource-id', '')
                     })
         except Exception as e:
-            print(f"解析 XML 获取可点击节点时失败: {e}")
+            logging.error(f"解析 XML 获取可点击节点时失败: {e}")
             
         return elements
 
@@ -91,7 +92,7 @@ class UIAutomatorController:
         sensitive_keywords =[
             'avatar', 'username', 'email', 
             'account', 'password', 'sign in', 'log in', 
-            # 'profile', # Twitter 全是 profile，先去掉这个关键词，避免过度打码了。
+            'profile', # Twitter 全是 profile，先去掉这个关键词，避免过度打码了。
             # 'phone', 会把左上角状态栏的时间和通知图标涂黑，其实不需要？
             # 'show navigation drawer' # <-- 针对 Twitter 头像，但会把上面全部涂黑。
         ]
@@ -132,12 +133,12 @@ class UIAutomatorController:
                             count += 1
                             
         except Exception as e:
-            print(f"[Anonymize] XML解析异常: {e}")
+            logging.error(f"[Anonymize] XML解析异常: {e}")
 
         # 只有在真正发生了打码时，才重新覆写图片，节省磁盘 I/O
         if count > 0:
             cv2.imwrite(output_path, img)
-            print(f"  [Anonymize] 成功为 {count} 处敏感区域进行可解释性打码。")
+            logging.info(f"  [Anonymize] 成功为 {count} 处敏感区域进行可解释性打码。")
             
         return output_path
 
@@ -166,9 +167,9 @@ class UIAutomatorController:
         time.sleep(delay)
         for attempt in range(6):
             if self.get_current_package() == package_name:
-                print(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
+                logging.info(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
                 return
-            print(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
+            logging.info(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
             time.sleep(1)
         raise RuntimeError(f"应用 {package_name} 启动失败，请检查设备状态。")
 
@@ -210,15 +211,15 @@ class UIAutomatorController:
                     
                 if sim >= SIM_THRESHOLD: # 相似度阈值
                     if attempt > 0:
-                        print(f"      -> 步进 {step_idx+1}/{len(trajectory)} 加载成功 (耗时 ~{attempt * wait_time}s)")
+                        logging.info(f"      -> 步进 {step_idx+1}/{len(trajectory)} 加载成功 (耗时 ~{attempt * wait_time}s)")
                     step_success = True
                     break
                     
-                print(f"      -> ⏳ 步进 {step_idx+1}/{len(trajectory)} 校验未通过 (相似度 {sim:.2f})，等待 {wait_time}s 重试 ({attempt+1}/{max_retries})...")
+                logging.info(f"      -> ⏳ 步进 {step_idx+1}/{len(trajectory)} 校验未通过 (相似度 {sim:.2f})，等待 {wait_time}s 重试 ({attempt+1}/{max_retries})...")
                 time.sleep(wait_time)
                 
             if not step_success:
-                print(f"    -> ❌ 轨迹回放失败于第 {step_idx+1} 步: {action.get('desc', '未知操作')}")
+                logging.error(f"    -> ❌ 轨迹回放失败于第 {step_idx+1} 步: {action.get('desc', '未知操作')}")
                 return False
                 
         return True
@@ -246,20 +247,20 @@ class UIAutomatorController:
         cx = (x1 + x2) / 2
         cy = (y1 + y2) / 2
         
-        # 计算滑动的起止点 (留出 20% 的边距防止滑出边界)
+        # 计算滑动的起止点 (留出 12% 的边距防止滑出边界)
         box_w = x2 - x1
         box_h = y2 - y1
         
         if direction.lower() == "vertical":
             start_x = end_x = cx
-            start_y = y1 + box_h * 0.8
-            end_y = y1 + box_h * 0.2
+            start_y = y1 + box_h * 0.88
+            end_y = y1 + box_h * 0.12
         else: # horizontal
             start_y = end_y = cy
-            start_x = x1 + box_w * 0.8
-            end_x = x1 + box_w * 0.2
+            start_x = x1 + box_w * 0.88
+            end_x = x1 + box_w * 0.12
 
-        print(f"    [Action] 执行滑动: ({int(start_x)}, {int(start_y)}) -> ({int(end_x)}, {int(end_y)})")
+        logging.info(f"    [Action] 执行滑动: ({int(start_x)}, {int(start_y)}) -> ({int(end_x)}, {int(end_y)})")
         self.d.swipe(start_x, start_y, end_x, end_y, duration=duration)
         time.sleep(2) # 等待滑动动画和内容加载完成
 
@@ -312,11 +313,11 @@ class UIAutomatorController:
                         'resourceId': node.attrib.get('resource-id', '')
                     })
         except Exception as e:
-            print(f"解析 XML 获取滑动节点失败: {e}")
+            logging.error(f"解析 XML 获取滑动节点失败: {e}")
             
         return elements
     
-    def wait_for_loading_to_finish(self, timeout=8):
+    def wait_for_loading_to_finish(self, timeout=8.0):
         """
         通过分析 XML 树，智能判断当前页面是否仍在显示加载动画（如菊花图、进度条）。
         如果是，则主动阻塞等待，直到加载完成或超时，以防止产生“假阳性”数据。
@@ -371,8 +372,8 @@ class UIAutomatorController:
                 # time.sleep(1.0)
                 return True
                 
-            print(f"      -> ⏳ 检测到页面正在异步加载 (Loading)... 阻塞等待中...")
+            logging.info(f"      -> ⏳ 检测到页面正在异步加载 (Loading)... 阻塞等待中...")
             time.sleep(1.0)
             
-        print("      -> ⚠️ 等待加载超时，强制继续执行。")
+        logging.warning("      -> ⚠️ 等待加载超时，强制继续执行。")
         return False

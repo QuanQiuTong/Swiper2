@@ -1,6 +1,7 @@
 import json
 import shutil
 import os
+import logging
 from pathlib import Path
 from utils.image_utils import ImageUtils
 
@@ -44,7 +45,7 @@ class PageMemory:
                 self.pages.append(node)
             return True
         except Exception as e:
-            print(f"加载地图缓存失败: {e}")
+            logging.error(f"加载地图缓存失败: {e}")
             return False
 
     def is_new_page(self, new_image_path: str):
@@ -108,4 +109,4 @@ class PageMemory:
         
         with open(self.json_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"页面图谱已保存至: {self.json_file}")
+        logging.info(f"页面图谱已保存至: {self.json_file}")

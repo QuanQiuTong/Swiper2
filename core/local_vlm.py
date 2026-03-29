@@ -2,13 +2,14 @@ import torch
 from transformers import AutoModelForImageTextToText, AutoProcessor
 from PIL import Image
 import json
+import logging
 from pathlib import Path
 from core.prompts import prompt_slidable_regions, prompt_generate_intension
 
 class LocalVLMClient:
     def __init__(self, model_path=r"D:\Games\Qwen3-VL-4B-Instruct"):
         """初始化并加载本地的 Qwen3-VL 模型"""
-        print(f"  [LocalVLM] 正在加载本地模型: {model_path} ...")
+        logging.info(f"  [LocalVLM] 正在加载本地模型: {model_path} ...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # 加载模型 (默认使用 fp16 精度以节省显存，Qwen3-VL-4B 大约需要 8-10GB 显存)
@@ -25,13 +26,13 @@ class LocalVLMClient:
             trust_remote_code=True
         )
         self.model.eval()
-        print(f"[LocalVLM] 模型加载完成！当前使用设备: {self.device}")
+        logging.info(f"[LocalVLM] 模型加载完成！当前使用设备: {self.device}")
 
     def analyze_slidable_regions(self, image_path: str) -> list:
         """读取本地图片，本地跑前向推理，返回可滑动区域列表"""
         prompt = prompt_slidable_regions
         try:
-            print(f"  [LocalVLM] 正在分析图片: {Path(image_path).name} ...")
+            logging.info(f"  [LocalVLM] 正在分析图片: {Path(image_path).name} ...")
             image = Image.open(image_path).convert("RGB")
             
             # 构造 Qwen3-VL 需要的 message 格式
@@ -80,11 +81,11 @@ class LocalVLMClient:
                 clean_up_tokenization_spaces=False
             )[0]
             
-            print(f"  [LocalVLM] 模型原始输出 -> \n{response_text}\n")
+            logging.info(f"  [LocalVLM] 模型原始输出 -> \n{response_text}\n")
             return self._parse_json_response(response_text)
             
         except Exception as e:
-            print(f"  [LocalVLM] 推理发生错误: {e}")
+            logging.error(f"  [LocalVLM] 推理发生错误: {e}")
             return[]
 
     
@@ -110,7 +111,7 @@ class LocalVLMClient:
             
             return response_text
         except Exception as e:
-            print(f"  [LocalVLM] 生成 XML 组件意图失败: {e}")
+            logging.error(f"  [LocalVLM] 生成 XML 组件意图失败: {e}")
             return f"沿 {direction} 方向滑动该组件"
 
     def _parse_json_response(self, text: str) -> list:
@@ -129,5 +130,5 @@ class LocalVLMClient:
                     valid_regions.append(r)
             return valid_regions
         except Exception as e:
-            print(f"  [LocalVLM] JSON 解析失败: {e}\n  [解析用字符串]: {json_str}")
+            logging.error(f"  [LocalVLM] JSON 解析失败: {e}\n  [解析用字符串]: {json_str}")
             return[]

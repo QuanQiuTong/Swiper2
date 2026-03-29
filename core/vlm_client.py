@@ -2,6 +2,7 @@
 import requests
 import base64
 import json
+import logging
 from pathlib import Path
 from core.prompts import prompt_slidable_regions, prompt_generate_intension
 
@@ -21,14 +22,14 @@ class VLMClient:
         }
 
         try:
-            print(f"  [VLM Client] 正在远程分析纯视觉区域: {Path(image_path).name} ...")
+            logging.info(f"  [VLM Client] 正在远程分析纯视觉区域: {Path(image_path).name} ...")
             resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=120)
             resp.raise_for_status()
             response_text = resp.json()["text"]
             
             return self._parse_json_response(response_text)
         except Exception as e:
-            print(f"  [VLM Client] 区域推理请求失败: {e}")
+            logging.error(f"  [VLM Client] 区域推理请求失败: {e}")
             return[]
 
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
@@ -57,7 +58,7 @@ class VLMClient:
             response_text = resp.json()["text"].strip()
             return response_text
         except Exception as e:
-            print(f"[VLM Client] 生成意图请求失败: {e}")
+            logging.error(f"[VLM Client] 生成意图请求失败: {e}")
             return f"沿 {direction} 方向滑动该组件"
 
     def _parse_json_response(self, text: str) -> list:
@@ -76,6 +77,6 @@ class VLMClient:
                     valid_regions.append(r)
             return valid_regions
         except Exception as e:
-            print(f"[VLM Client] JSON 解析失败: {e}")
-            print(f"  [解析用字符串]: {json_str}")
+            logging.error(f"[VLM Client] JSON 解析失败: {e}")
+            logging.info(f"  [解析用字符串]: {json_str}")
             return []
