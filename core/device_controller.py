@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from utils.image_utils import ImageUtils
 
+SIM_THRESHOLD = 0.60
 class UIAutomatorController:
     def __init__(self, device_serial=None):
         self.d = u2.connect(device_serial)
@@ -80,15 +81,31 @@ class UIAutomatorController:
     def take_anonymized_screenshot(self, output_path: str):
         """
         截图并打码：使用原生 dump_hierarchy，完美绕过 XPath 限制。
+        同时保存当前页面的 XML 文件，方便调试与后续数据集使用。
         """
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         self.d.screenshot(output_path)
         
-        sensitive_keywords =['avatar', 'profile', 'username', 'email', 'phone', 'account', 'password', 'sign in', 'log in']
+        # 可以根据你查看到的 XML，随时在这里补充敏感词
+        sensitive_keywords =[
+            'avatar', 'profile', 'username', 'email', 'phone', 
+            'account', 'password', 'sign in', 'log in', 
+            # 'show navigation drawer' # <-- 针对 Twitter 头像，但会把上面全部涂黑。
+        ]
         boxes_to_mask =[]
         
         try:
             xml_dump = self.d.dump_hierarchy()
+
+            print("")
+            print(xml_dump[:500]) # 打印前 500 字符，快速查看结构和内容
+            print("")
+            
+            # === 保存同名的 XML 文件 ===
+            xml_path = output_path.replace('.png', '.xml')
+            with open(xml_path, 'w', encoding='utf-8') as f:
+                f.write(xml_dump)
+            
             root = ET.fromstring(xml_dump)
             
             for node in root.iter('node'):
@@ -141,10 +158,16 @@ class UIAutomatorController:
 
     def reset_app(self, package_name):
         self.d.app_stop(package_name)
-        time.sleep(1)
+        time.sleep(0.5)
         self.d.app_start(package_name)
-        print(f"  [Device Controller] 已重置应用 {package_name}，等待完全启动")
-        time.sleep(3)
+        time.sleep(2)
+        for attempt in range(6):
+            if self.get_current_package() == package_name:
+                break
+            else:
+                print(f"  [Device Controller] 等待应用启动... (尝试 {attempt+1})")
+                time.sleep(1)
+        print(f"  [Device Controller] 应用 {package_name} 已启动，准备就绪。")
 
     def replay_trajectory(self, package_name, trajectory):
         """
@@ -182,7 +205,7 @@ class UIAutomatorController:
                 if os.path.exists(verify_img):
                     os.remove(verify_img) # 清理临时文件
                     
-                if sim >= 0.85: # 相似度阈值
+                if sim >= SIM_THRESHOLD: # 相似度阈值
                     if attempt > 0:
                         print(f"      -> 步进 {step_idx+1}/{len(trajectory)} 加载成功 (耗时 ~{attempt * wait_time}s)")
                     step_success = True

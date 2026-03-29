@@ -1,5 +1,6 @@
 import json
 import shutil
+import os
 from pathlib import Path
 from utils.image_utils import ImageUtils
 
@@ -65,11 +66,16 @@ class PageMemory:
         # 定义最终的存储路径
         final_img_path = self.output_dir / f"{page_id}.png"
         final_skel_path = self.output_dir / f"{page_id}_skeleton.png"
+        final_xml_path = self.output_dir / f"{page_id}.xml"  # 新增
         
-        # 将临时图移动/重命名为正式图
+        # 移动临时图片到正式目录
         shutil.move(temp_image_path, final_img_path)
         
-        # 生成并保存骨架图
+        # 将临时的 XML 也一并移动过去并重命名
+        temp_xml_path = temp_image_path.replace('.png', '.xml')
+        if os.path.exists(temp_xml_path):
+            shutil.move(temp_xml_path, final_xml_path)
+            
         ImageUtils.save_skeleton(str(final_img_path), str(final_skel_path))
         
         # 记录到内存

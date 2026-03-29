@@ -112,7 +112,11 @@ class Phase1Explorer:
                     matched_page_node = self.memory.get_page(matched_id)
                     action['expected_image_path'] = matched_page_node.image_path
                     self.memory.save_to_disk() # 及时保存路径关系
+                    
+                    # 清理临时的 png 及其附带的 xml
                     os.remove(temp_img)
+                    temp_xml = temp_img.replace('.png', '.xml')
+                    os.remove(temp_xml)
 
                 # 恢复基础页面，为点击下一个元素做准备
                 if not self.controller.replay_trajectory(self.package, current_page.trajectory):
