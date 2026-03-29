@@ -1,6 +1,7 @@
 import json
 import time
 import shutil
+import os
 from pathlib import Path
 from core.device_controller import UIAutomatorController
 from utils.image_utils import convert, calculate_image_diff
@@ -28,7 +29,38 @@ class Phase2Swiper:
         self.temp_dir = Path("outputs") / "temp"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         
+        # === 【断点续传核心变量】 ===
+        self.dataset_file = self.output_dir / "swipe_dataset.json"
+        self.progress_file = self.output_dir / "phase2_progress.json"
+        
         self.successful_swipes =[]
+        self.processed_pages = set()
+        
+        self._load_resume_data()
+
+    def _load_resume_data(self):
+        """加载断点续传数据"""
+        if self.dataset_file.exists():
+            try:
+                with open(self.dataset_file, 'r', encoding='utf-8') as f:
+                    self.successful_swipes = json.load(f)
+                print(f"  -> 📦 发现已有数据集，已恢复 {len(self.successful_swipes)} 条滑动数据。")
+            except Exception as e:
+                print(f"  -> ⚠️ 读取已有数据集失败: {e}")
+
+        if self.progress_file.exists():
+            try:
+                with open(self.progress_file, 'r', encoding='utf-8') as f:
+                    self.processed_pages = set(json.load(f))
+                print(f"  -> 📦 发现已有进度，已自动跳过 {len(self.processed_pages)} 个处理完毕的页面。")
+            except Exception as e:
+                print(f"  -> ⚠️ 读取进度文件失败: {e}")
+
+    def save_progress(self, page_id):
+        """将处理完毕的页面存入进度文件"""
+        self.processed_pages.add(page_id)
+        with open(self.progress_file, 'w', encoding='utf-8') as f:
+            json.dump(list(self.processed_pages), f, ensure_ascii=False, indent=2)
 
     def load_memory(self):
         if not self.memory_file.exists():
@@ -43,6 +75,12 @@ class Phase2Swiper:
 
         for page in pages:
             page_id = page['page_id']
+            
+            # === 【断点续传跳过逻辑】 ===
+            if page_id in self.processed_pages:
+                print(f"\n--- ⏭️ 节点 {page_id} 此前已处理完毕，自动跳过 ---")
+                continue
+                
             img_path = page['image_path']
             trajectory = page['trajectory']
             
@@ -97,13 +135,13 @@ class Phase2Swiper:
                 
             if not all_swipe_candidates:
                 print(f"  -> 当前画面未发现任何滑动目标，跳过。")
+                # 即便没有滑动目标，这个页面也算查过了，保存进度
+                self.save_progress(page_id)
                 continue
 
             print(f"  => 汇总完成，该页面实时产生 {len(all_swipe_candidates)} 个测试目标。")
 
-            # 遍历刚才分析出的 candidates 尝试滑动
             for idx, candidate in enumerate(all_swipe_candidates):
-                # 只有在测第二个候选时，才需要重新回放以保证处于页面的初始状态
                 if idx > 0:
                     print(f"\n    -> 重置状态，重新前往目标页面...")
                     if not self.controller.replay_trajectory_unverified(self.package, trajectory):
@@ -111,6 +149,12 @@ class Phase2Swiper:
                         continue
                         
                 self.validate_swipe(idx, candidate, page_id)
+
+
+            # === 【断点续传：页面完结记录】 ===
+            # 当这个页面的所有 candidates 都测完后，记录该页面彻底完成
+            self.save_progress(page_id)
+            print(f"  => 节点 {page_id} 所有的滑动评估已完成，进度已保存。")
 
         print(f"\n=== Phase 2 完成！共合成 {len(self.successful_swipes)} 条数据。 ===")
 
@@ -156,24 +200,31 @@ class Phase2Swiper:
                 # "direction": 默认不标记，后续根据坐标变化补充（如果是纯水平或纯垂直滑动的话） 
             }
                 
-            if sx == ex:  # x不变，竖向滑动
+            if sx == ex:    # x不变，竖向滑动
                 action['direction'] = "up" if sy > ey else "down"
             elif sy == ey:  # y不变，横向滑动
                 action['direction'] = "left" if sx > ex else "right"
-            else: # 并非纯水平或垂直滑动，暂不标记
+            else:           # 并非纯水平或垂直滑动，暂不标记
                 pass
 
-            # 我们项目的数据结构
             self.successful_swipes.append({
                 "img_filename": str(final_before),
                 "action_data": action
             })
             self.save_dataset()
         else:
-            print("    -> ❌ 验证失败！滑动后页面无变化（可能已经到底部了或 VLM 误判）。丢弃该数据。")
+            print("    -> ❌ 验证失败！滑动后页面无变化。丢弃该数据。")
 
     def save_dataset(self):
-        out_file = self.output_dir / "swipe_dataset.json"
-        with open(out_file, 'w', encoding='utf-8') as f:
+        # === 【防止断点续传产生重复数据：基于文件名去重】 ===
+        unique_swipes = {s['img_filename']: s for s in self.successful_swipes}
+        self.successful_swipes = list(unique_swipes.values())
+        
+        with open(self.dataset_file, 'w', encoding='utf-8') as f:
             json.dump(self.successful_swipes, f, ensure_ascii=False, indent=2)
-        print(f"当前已成功合成 {len(self.successful_swipes)} 条滑动数据，保存至: {out_file}")
+        print(f"当前已成功合成 {len(self.successful_swipes)} 条滑动数据，保存至: {self.dataset_file}")
+
+if __name__ == "__main__":
+    target_app = "com.twitter.android"
+    swiper = Phase2Swiper(package_name=target_app, use_local_vlm=False)
+    swiper.run_synthesis()

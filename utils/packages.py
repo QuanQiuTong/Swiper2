@@ -56,12 +56,15 @@ PACKAGE_HOT_CN = {
 }
 
 PACKAGE_INSTALLED = {
-    "DeepSeek": "com.deepseek.chat",
-    "Wiser": "com.wisernow.android",
-    "Perplexity": "ai.perplexity.app.android",
-    "ChatGPT": "com.openai.chatgpt",  # 假设的官方 ChatGPT App 包名
+    # "DeepSeek": "com.deepseek.chat",      # √
+    # "Wiser": "com.wisernow.android",      # 没多少页面，还充满了广告，不推荐。
+    # "Perplexity": "ai.perplexity.app.android",
+    # "ChatGPT": "com.openai.chatgpt",      # 假设的官方 ChatGPT App 包名
+    # "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
 
-    "Reddit": "com.reddit.frontpage",
-    "X/Twitter": "com.twitter.android",
-    "Threads": "com.instagram.barcelona",
+    # "Reddit": "com.reddit.frontpage",     # √
+    "X/Twitter": "com.twitter.android",     # ing
+    # "Threads": "com.instagram.barcelona", # 需要 Instagram 账号登录，暂不适合自动化测试
+    "Spotify": "com.spotify.music",
+
 }
