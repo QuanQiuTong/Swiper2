@@ -96,12 +96,8 @@ class UIAutomatorController:
         
         try:
             xml_dump = self.d.dump_hierarchy()
-
-            print("")
-            print(xml_dump[:500]) # 打印前 500 字符，快速查看结构和内容
-            print("")
             
-            # === 保存同名的 XML 文件 ===
+            # 保存同名的 XML 文件
             xml_path = output_path.replace('.png', '.xml')
             with open(xml_path, 'w', encoding='utf-8') as f:
                 f.write(xml_dump)
@@ -219,7 +215,14 @@ class UIAutomatorController:
                 return False
                 
         return True
-    
+
+    def replay_trajectory_unverified(self, package_name, trajectory):
+        """不带校验的快速回放，仅用于一些不需要严格状态验证的场景（如快速回到首页）"""
+        self.reset_app(package_name)
+        for action in trajectory:
+            self.click(action['x'], action['y'], delay=1.0)
+        return self.get_current_package() == package_name
+
     def swipe_by_normalized_bbox(self, bbox: list, direction: str, duration=0.3):
         """
         根据 VLM 给出的归一化 bbox [0-1000] 和方向，计算真实的物理坐标并执行滑动。
