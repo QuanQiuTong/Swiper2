@@ -63,7 +63,7 @@ PACKAGE_INSTALLED = {
     # "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
 
     # "Reddit": "com.reddit.frontpage",     # √
-    "X/Twitter": "com.twitter.android",     # ing
+    # "X/Twitter": "com.twitter.android",   # √
     # "Threads": "com.instagram.barcelona", # 需要 Instagram 账号登录，暂不适合自动化测试
     "Spotify": "com.spotify.music",
 
