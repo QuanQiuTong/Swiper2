@@ -29,7 +29,7 @@ class Phase1Explorer:
                     queue.append(p.page_id)
         else:
             self.controller.reset_app(self.package)
-            self.controller.wait_for_loading_to_finish()
+            # self.controller.wait_for_loading_to_finish()
             
             temp_home = str(self.temp_dir / "temp_home.png")
             self.controller.take_screenshot(temp_home)
@@ -61,7 +61,7 @@ class Phase1Explorer:
             print(f"检测到 {len(elements)} 个可点击元素。")
 
             for elem in elements:
-                success = self._explore_single_element(elem, current_page, current_page_id, queue)
+                success = self._explore_single_element(elem, current_page, queue)
                 if not success:
                     # 如果返回 False，说明发生了致命错误（如无法回退到基础页面或 ADB 断开），中断当前页面的后续探索
                     break
@@ -69,7 +69,7 @@ class Phase1Explorer:
         self.memory.save_to_disk()
         print(f"\n=== Phase 1 探索完成。共发现 {len(self.memory.pages)} 个独立结构页面 ===")
 
-    def _explore_single_element(self, elem: dict, current_page, current_page_id: str, queue: list) -> bool:
+    def _explore_single_element(self, elem: dict, current_page, queue: list) -> bool:
         """
         处理【单个可点击元素】的探索逻辑（点击、防抖、截图、对比、回放）。
         :return: True 表示继续遍历下一个元素，False 表示遇到严重错误需终止当前页面遍历。
@@ -85,15 +85,15 @@ class Phase1Explorer:
         self.memory.save_to_disk() 
         
         btn_name = elem.get('text') or elem.get('desc') or '未知组件'
-        print(f"[{current_page_id}] 点击: ({cx}, {cy}) [{btn_name}]")
+        print(f"[{current_page.page_id}] 点击: ({cx}, {cy}) [{btn_name}]")
         
         action = {'x': cx, 'y': cy, 'desc': btn_name, 'expected_image_path': ''}
         new_trajectory = current_page.trajectory + [action]
 
-        self.controller.click(cx, cy, delay=1)
+        self.controller.click(cx, cy, delay=2.5)
 
         # 智能防抖：等待加载动画结束
-        self.controller.wait_for_loading_to_finish()
+        # self.controller.wait_for_loading_to_finish()
 
         # 防逃逸检查
         current_pkg = self.controller.get_current_package()
@@ -118,19 +118,19 @@ class Phase1Explorer:
             print(f"     已提取并保存 {len(new_page_node.scrollable_components)} 个 XML 可滑动组件。")
             
             action['expected_image_path'] = new_page_node.image_path
-            self.memory.save_to_disk()
             queue.append(new_page_id)
         else:
             print(f"  -> 页面未产生结构性变化 (骨架匹配到 {matched_id})")
             matched_page_node = self.memory.get_page(matched_id)
             action['expected_image_path'] = matched_page_node.image_path
-            self.memory.save_to_disk()
             
             if os.path.exists(temp_img):
                 os.remove(temp_img)
             temp_xml = temp_img.replace('.png', '.xml')
             if os.path.exists(temp_xml):
                 os.remove(temp_xml)
+
+        self.memory.save_to_disk()
 
         # 探索完当前分支，恢复到当前页面的初始状态，以便点击下一个元素
         if not self.controller.replay_trajectory(self.package, current_page.trajectory):

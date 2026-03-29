@@ -89,8 +89,9 @@ class UIAutomatorController:
         
         # 可以根据你查看到的 XML，随时在这里补充敏感词
         sensitive_keywords =[
-            'avatar', 'profile', 'username', 'email', 
+            'avatar', 'username', 'email', 
             'account', 'password', 'sign in', 'log in', 
+            # 'profile', # Twitter 全是 profile，先去掉这个关键词，避免过度打码了。
             # 'phone', 会把左上角状态栏的时间和通知图标涂黑，其实不需要？
             # 'show navigation drawer' # <-- 针对 Twitter 头像，但会把上面全部涂黑。
         ]
@@ -158,11 +159,11 @@ class UIAutomatorController:
         self.d.click(x, y)
         time.sleep(delay)
 
-    def reset_app(self, package_name):
+    def reset_app(self, package_name, delay=2.0):
         self.d.app_stop(package_name)
         time.sleep(0.5)
         self.d.app_start(package_name)
-        time.sleep(1.5)
+        time.sleep(delay)
         for attempt in range(6):
             if self.get_current_package() == package_name:
                 print(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
@@ -325,8 +326,10 @@ class UIAutomatorController:
         # 常见的代表"加载中"的资源 ID 关键字
         # resource-id="com.twitter.android:id/list_progress" class="android.widget.ProgressBar"
         loading_keywords = [
-            'progress', 'spinner', 'refresh',
-            # 'loading', # 先去掉，误伤了 fleetline_loading_holder
+            'progress', 'spinner',
+            # 'refresh',    # text="" resource-id="com.twitter.android:id/swipe_refresh_layout" class="android.view.ViewGroup"
+                            # text="" resource-id="com.spotify.music:id/evo_swipe_refresh_layout" class="android.view.ViewGroup"
+            # 'loading',    # 先去掉，误伤了 fleetline_loading_holder
         ]
         
         while time.time() - start_time < timeout:
