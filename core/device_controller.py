@@ -48,12 +48,6 @@ class UIAutomatorController:
             for node in root.iter('node'):
                 # 寻找 clickable 为 true 的节点
                 if node.attrib.get('clickable') == 'true':
-                    # 如果涉及 account，直接跳过，以免切换账号
-                    text = node.attrib.get('text', '').lower()
-                    desc = node.attrib.get('content-desc', '').lower()
-                    res_id = node.attrib.get('resource-id', '').lower()
-                    if 'account' in text or 'account' in desc or 'account' in res_id:
-                        continue
 
                     bounds_str = node.attrib.get('bounds')
                     if not bounds_str: continue
@@ -172,10 +166,25 @@ class UIAutomatorController:
         time.sleep(0.5)
         self.d.app_start(package_name)
         time.sleep(delay)
-        for attempt in range(6):
+        for attempt in range(3):
             if self.get_current_package() == package_name:
                 logging.info(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
                 return
+            if self.get_current_package() == "com.lbe.security.miui":
+                logging.warning(f"  [Device] 发现系统安全中心的拦截提示，正在尝试自动点击允许...")
+                # 这个坐标是小米12S Ultra 的“允许”按钮位置，其他设备可能需要调整
+                self.click(540, 2200, delay=1.0)
+            logging.info(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
+            time.sleep(1)
+
+        self.d.app_start(package_name) # 最后再尝试一次启动，增加成功率
+        for attempt in range(3, 6):
+            if self.get_current_package() == package_name:
+                logging.info(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
+                return
+            if self.get_current_package() == "com.lbe.security.miui":
+                logging.warning(f"  [Device] 发现系统安全中心的拦截提示，正在尝试自动返回...")
+                self.d.press("back")
             logging.info(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
             time.sleep(1)
         raise RuntimeError(f"应用 {package_name} 启动失败，请检查设备状态。")

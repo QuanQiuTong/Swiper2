@@ -155,6 +155,9 @@ class Phase2Swiper:
             self.save_progress(page_id)
             logging.info(f"  => 节点 {page_id} 所有的滑动评估已完成，进度已保存。")
 
+        # 连续back回到桌面
+        for _ in range(6):
+            self.controller.back()
         logging.info(f"\n=== Phase 2 完成！共合成 {len(self.successful_swipes)} 条数据。 ===")
 
     def validate_swipe(self, idx, candidate, page_id):
