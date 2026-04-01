@@ -26,11 +26,11 @@ class Phase1Explorer:
             logging.info(f"  -> 📦 发现已有探索进度，成功恢复 {len(self.memory.pages)} 个页面地图！")
             # 扫描所有未满深度的页面重新加入探索队列
             for p in self.memory.pages:
-                if len(p.trajectory) < self.max_depth:
+                if len(p.trajectory) < self.max_depth and not getattr(p, 'is_fully_explored', False):
                     queue.append(p.page_id)
         else:
             self.controller.reset_app(self.package)
-            time.sleep(4) # 权宜之计
+            time.sleep(8) # 权宜之计
             # 疑似没必要 # self.controller.wait_for_loading_to_finish()
             
             temp_home = str(self.temp_dir / "temp_home.png")
@@ -53,12 +53,12 @@ class Phase1Explorer:
             if len(current_page.trajectory) == 0:
                 logging.info(f"  -> [重置] 正在启动回到首页...")
                 self.controller.reset_app(self.package)
-                time.sleep(3) 
+                time.sleep(1) 
             else:
                 if not self.controller.replay_trajectory(self.package, current_page.trajectory):
                     logging.error(f"  -> ❌ 无法稳定回放至 {current_page_id}，放弃该页面探索。")
                     continue
-            time.sleep(5) # 权宜之计
+            time.sleep(8) # 权宜之计
             
             elements = self.controller.get_clickable_elements_xml()
                 
@@ -66,11 +66,15 @@ class Phase1Explorer:
 
             for elem in elements:
 
-                time.sleep(3) # 权宜之计
+                time.sleep(8) # 权宜之计
                 success = self._explore_single_element(elem, current_page, queue)
                 if not success:
                     # 如果返回 False，说明发生了致命错误（如无法回退到基础页面或 ADB 断开），中断当前页面的后续探索
                     break
+            else:
+                # 只有当 for 循环正常跑完（没有被 break 提前中断），才标记该页面所有组件探索完毕
+                current_page.is_fully_explored = True
+                self.memory.save_to_disk()
 
         self.memory.save_to_disk()
         logging.info(f"\n=== Phase 1 探索完成。共发现 {len(self.memory.pages)} 个独立结构页面 ===")

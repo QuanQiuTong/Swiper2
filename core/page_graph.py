@@ -14,6 +14,7 @@ class PageNode:
         self.visited_elements = set()
         self.scrollable_components =[]
         self.parent_page_id = parent_page_id
+        self.is_fully_explored = False
 
 class PageMemory:
     def __init__(self, package_name: str, similarity_threshold=0.85):
@@ -44,6 +45,7 @@ class PageMemory:
                 node.scrollable_components = item.get('scrollable_components',[])
                 # 恢复已点击坐标的记忆集合
                 node.visited_elements = set(tuple(x) for x in item.get('visited_elements',[]))
+                node.is_fully_explored = item.get('is_fully_explored', False)
                 self.pages.append(node)
             return True
         except Exception as e:
@@ -108,7 +110,8 @@ class PageMemory:
                 "skeleton_path": p.skeleton_path,
                 "trajectory": p.trajectory,
                 "scrollable_components": getattr(p, 'scrollable_components',[]),
-                "visited_elements": list(p.visited_elements)  # 记录断点
+                "visited_elements": list(p.visited_elements),  # 记录断点
+                "is_fully_explored": getattr(p, 'is_fully_explored', False)
             })
         
         with open(self.json_file, 'w', encoding='utf-8') as f:
