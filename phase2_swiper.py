@@ -139,6 +139,7 @@ class Phase2Swiper:
 
             # 【防抖补丁 1】：让 VLM 分析前，确保页面彻底加载出内容
             self.controller.wait_for_loading_to_finish()
+            time.sleep(6) # 额外加时，确保动态内容也加载出来了
 
             swipe_candidates = self.get_swipe_candidates(page_id)
 
@@ -164,10 +165,12 @@ class Phase2Swiper:
         logging.info(f"\n[执行 {idx+1}] {candidate.get('category')} | 意图: {candidate.get('command')}")
 
         # 【防抖补丁 2】在截取滑动前的参照图之前，必须保证页面已经彻底没有在 Loading 状态了
+        time.sleep(6)
         self.controller.wait_for_loading_to_finish()
 
-        # 步骤 B：执行滑动前的截图
+        # 步骤 B：执行滑动前的截图 (此时底层的 controller 已经同时生成了 temp_before.xml)
         before_img = str(self.output_dir / "temp_before.png")
+        before_xml = str(self.output_dir / "temp_before.xml")
         self.controller.take_screenshot(before_img)
 
         # 步骤 C：执行滑动
@@ -176,24 +179,30 @@ class Phase2Swiper:
             direction=candidate['direction']
         )
 
-        # 步骤 D：执行滑动后的截图
-        # 滑动后通常会拉取新数据，为了确保新数据渲染出来能被 diff 侦测到，
-        # 在这里也等一下加载！
+        # 步骤 D：执行滑动后的截图 (同样生成了 temp_after.xml)
+        # 滑动后通常会拉取新数据，为了确保新数据渲染出来能被 diff 侦测到，在这里也等一下加载！
         self.controller.wait_for_loading_to_finish(timeout=4)
         after_img = str(self.output_dir / "temp_after.png")
+        after_xml = str(self.output_dir / "temp_after.xml")
         self.controller.take_screenshot(after_img)
 
         # 步骤 E：对比验证
         is_success = calculate_image_diff(before_img, after_img, threshold=0.01)
 
         if is_success:
-            logging.info(f"    -> ✅ 验证成功！保存数据。")
+            logging.info(f"    -> ✅ 验证成功！保存数据 (含图片与XML)。")
             dataset_id = f"{page_id}_swipe_{idx}"
-            final_before = self.output_dir / f"{dataset_id}_before.png"
-            final_after = self.output_dir / f"{dataset_id}_after.png"
+            
+            final_before_img = self.output_dir / f"{dataset_id}_before.png"
+            final_before_xml = self.output_dir / f"{dataset_id}_before.xml"
+            final_after_img = self.output_dir / f"{dataset_id}_after.png"
+            final_after_xml = self.output_dir / f"{dataset_id}_after.xml"
 
-            shutil.move(before_img, final_before)
-            shutil.move(after_img, final_after)
+            # 移动图片
+            shutil.move(before_img, final_before_img)
+            shutil.move(after_img, final_after_img)
+            shutil.move(before_xml, final_before_xml)
+            shutil.move(after_xml, final_after_xml)
 
             sx, sy = swipe_params['start']
             ex, ey = swipe_params['end'] 
@@ -216,12 +225,15 @@ class Phase2Swiper:
                 pass
 
             self.successful_swipes.append(
-                {"img_filename": str(final_before), "action_data": action}
+                {"img_filename": str(final_before_img), "action_data": action}
             )
             self.save_dataset()
         else:
             logging.info(f"    -> ❌ 验证失败！滑动后页面无变化。丢弃该数据。")
-
+            # 验证失败时清理掉没用的临时文件，保持磁盘干净
+            for temp_file in[before_img, before_xml, after_img, after_xml]:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
     def save_dataset(self):
         # 基于文件名去重，防止断点续传产生重复数据
         unique_swipes = {s['img_filename']: s for s in self.successful_swipes}
