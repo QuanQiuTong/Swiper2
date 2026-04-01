@@ -6,6 +6,7 @@ __pycache__
 
 chat
 logs
+*trash*
 output
 outputs
 screenshot
@@ -15,6 +16,7 @@ summary1
 summary2
 summary3
 summaryClick
+SwipeBench
 
 explore1.py
 
