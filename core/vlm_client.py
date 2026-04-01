@@ -104,3 +104,38 @@ class VLMClient:
         except Exception as e:
             print(f"[VLM Client] JSON 解析失败: {e}")
             return
+        
+
+    def generate_intent_for_click(self, image_path: str, bbox: list, context_text: str) -> str:
+        """为离线保存的点击操作，远程请求一句自然语言意图"""
+        w, h = 1080, 2400 # 按照你的设备分辨率调整
+        norm_bbox = [
+            int(bbox[0] / w * 1000), int(bbox[1] / h * 1000),
+            int(bbox[2] / w * 1000), int(bbox[3] / h * 1000)
+        ]
+        
+        from core.prompts import CLICK_TASK_PROMPT_EN, CLICK_EXAMPLE_PROMPT_EN, CLICK_EXAMPLE_ASSISTANT_EN
+        target_prompt = CLICK_TASK_PROMPT_EN.format(norm_bbox, context_text)
+        
+        payload = {
+            "target_image_base64": self._encode_image(image_path),
+            "target_user_prompt": target_prompt
+        }
+        
+        # 复用 component 的 example 图像作为点击的 one-shot 示例图
+        if self.ex_comp_b64:
+            payload["example_image_base64"] = self.ex_comp_b64
+            payload["example_user_prompt"] = CLICK_EXAMPLE_PROMPT_EN
+            payload["example_assistant_reply"] = CLICK_EXAMPLE_ASSISTANT_EN
+
+        try:
+            resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=60)
+            resp.raise_for_status()
+            response_text = resp.json()["text"].strip()
+            
+            if "</think>" in response_text:
+                return response_text.split("</think>")[-1].strip()
+            return response_text
+        except Exception as e:
+            print(f"[VLM Client] 生成点击意图请求失败: {e}")
+            return f"Tap on the component '{context_text}'"

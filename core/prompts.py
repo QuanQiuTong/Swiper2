@@ -93,3 +93,30 @@ Scroll down the settings list to find more system options"""
 # REGION_TASK_PROMPT_ZH = "你是一个智能的 GUI 自动化测试专家。这是一张移动应用UI界面截图..."
 # COMPONENT_TASK_PROMPT_ZH = "我已经通过底层代码为你锁定了一个【可滑动组件】..."
 # -------------------------------------------------------------------------
+
+
+# ==========================================
+# 3. 为 Click (点击) 操作生成意图指令
+# ==========================================
+CLICK_TASK_PROMPT_EN = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
+I have located a [Clickable Component] that a user is about to tap.
+Its normalized bounding box (bbox) is: {}.
+The text or description of this component is: "{}".
+
+Please first think privately within the <think> and </think> tags:
+1. Locate the component in the screenshot using the provided bbox and text.
+2. Observe the context (e.g., is it a tab, a back button, a profile avatar, or a list item) to infer its specific function.
+3. Formulate an action instruction that matches human habits.
+
+After thinking, return ONLY ONE specific, clear natural language action instruction. It MUST be an **imperative sentence**.
+Note: After </think>, output only the plain text of this instruction, with no extra words.
+"""
+
+CLICK_EXAMPLE_PROMPT_EN = CLICK_TASK_PROMPT_EN.format("[850, 100, 950, 200]", "Search")
+
+CLICK_EXAMPLE_ASSISTANT_EN = """<think>
+Located the component at bbox[850, 100, 950, 200]. It is in the top right corner of the screen, typically where a search icon is placed. The text description confirms it is "Search".
+Tapping this component is intended to open the search bar or search page.
+Therefore, the instruction should clearly state "Tap the search icon to find content".
+</think>
+Tap the search icon to find content"""

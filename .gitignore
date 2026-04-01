@@ -10,8 +10,13 @@ output
 outputs
 screenshot
 screenshots
-summary*
+summary
+summary1
+summary2
+summaryClick
 
 explore1.py
 
 *.log
+
+*.json
