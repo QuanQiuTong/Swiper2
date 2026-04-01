@@ -91,9 +91,9 @@ class UIAutomatorController:
         
         # 可以根据你查看到的 XML，随时在这里补充敏感词
         sensitive_keywords =[
-            'avatar', 'username', 'email', 
-            'account', 'password', 'sign in', 'log in', 
-            'profile', # Twitter 全是 profile，先去掉这个关键词，避免过度打码了。
+            'avatar', 'username', # 'email', 
+            'account', 'password', # 'sign in', 'log in', 
+            # 'profile', # Twitter 全是 profile，先去掉这个关键词，避免过度打码了。
             # 'phone', 会把左上角状态栏的时间和通知图标涂黑，其实不需要？
             # 'show navigation drawer' # <-- 针对 Twitter 头像，但会把上面全部涂黑。
         ]
@@ -144,7 +144,17 @@ class UIAutomatorController:
         return output_path
 
     def take_screenshot(self, output_path: str):
-        return self.take_anonymized_screenshot(output_path)
+        # return self.take_anonymized_screenshot(output_path)
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        self.d.screenshot(output_path)
+
+        xml_path = output_path.replace('.png', '.xml')
+        try:
+            xml_dump = self.d.dump_hierarchy()
+            with open(xml_path, 'w', encoding='utf-8') as f:
+                f.write(xml_dump)
+        except Exception as e:
+            logging.error(f"普通截图时 XML 导出失败: {e}")
 
     def get_current_package(self):
         """获取当前正在前台运行的 App 包名"""
@@ -225,8 +235,12 @@ class UIAutomatorController:
                 # 计算当前屏幕与预期画面的骨架相似度
                 sim = ImageUtils.calculate_skeleton_similarity(verify_img, expected_path)
                 
+                # 清理临时文件
                 if os.path.exists(verify_img):
-                    os.remove(verify_img) # 清理临时文件
+                    os.remove(verify_img) 
+                verify_xml = verify_img.replace('.png', '.xml')
+                if os.path.exists(verify_xml):
+                    os.remove(verify_xml)
                     
                 if sim >= SIM_THRESHOLD: # 相似度阈值
                     if attempt > 0:
