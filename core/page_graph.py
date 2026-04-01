@@ -6,13 +6,14 @@ from pathlib import Path
 from utils.image_utils import ImageUtils
 
 class PageNode:
-    def __init__(self, page_id: str, image_path: str, skeleton_path: str, trajectory: list):
+    def __init__(self, page_id: str, image_path: str, skeleton_path: str, trajectory: list, parent_page_id: str = None):
         self.page_id = page_id
         self.image_path = image_path
         self.skeleton_path = skeleton_path
         self.trajectory = trajectory
         self.visited_elements = set()
         self.scrollable_components =[]
+        self.parent_page_id = parent_page_id
 
 class PageMemory:
     def __init__(self, package_name: str, similarity_threshold=0.85):
@@ -37,7 +38,8 @@ class PageMemory:
                     page_id=item['page_id'],
                     image_path=item['image_path'],
                     skeleton_path=item['skeleton_path'],
-                    trajectory=item['trajectory']
+                    trajectory=item['trajectory'],
+                    parent_page_id=item.get('parent_page_id')
                 )
                 node.scrollable_components = item.get('scrollable_components',[])
                 # 恢复已点击坐标的记忆集合
@@ -59,7 +61,7 @@ class PageMemory:
         
         return True, None
 
-    def add_page(self, temp_image_path: str, trajectory: list) -> str:
+    def add_page(self, temp_image_path: str, trajectory: list, parent_page_id: str = None) -> str:
         """将临时截图正式收录为新的 Page"""
         page_index = len(self.pages)
         page_id = f"page_{page_index}"
@@ -84,7 +86,8 @@ class PageMemory:
             page_id=page_id,
             image_path=str(final_img_path),
             skeleton_path=str(final_skel_path),
-            trajectory=trajectory
+            trajectory=trajectory,
+            parent_page_id=parent_page_id
         )
         self.pages.append(new_page)
         return page_id
@@ -100,6 +103,7 @@ class PageMemory:
         for p in self.pages:
             data.append({
                 "page_id": p.page_id,
+                "parent_page_id": getattr(p, 'parent_page_id', None),
                 "image_path": p.image_path,
                 "skeleton_path": p.skeleton_path,
                 "trajectory": p.trajectory,

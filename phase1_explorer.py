@@ -30,11 +30,13 @@ class Phase1Explorer:
                     queue.append(p.page_id)
         else:
             self.controller.reset_app(self.package)
+            time.sleep(4) # 权宜之计
             # 疑似没必要 # self.controller.wait_for_loading_to_finish()
             
             temp_home = str(self.temp_dir / "temp_home.png")
             self.controller.take_screenshot(temp_home)
-            home_page_id = self.memory.add_page(temp_home, trajectory=[])
+            # 【修改点】首页没有父节点，传入 parent_page_id=None
+            home_page_id = self.memory.add_page(temp_home, trajectory=[], parent_page_id=None)
             logging.info(f"记录首页: {home_page_id}")
             queue.append(home_page_id)
 
@@ -56,12 +58,15 @@ class Phase1Explorer:
                 if not self.controller.replay_trajectory(self.package, current_page.trajectory):
                     logging.error(f"  -> ❌ 无法稳定回放至 {current_page_id}，放弃该页面探索。")
                     continue
+            time.sleep(5) # 权宜之计
             
             elements = self.controller.get_clickable_elements_xml()
                 
             logging.info(f"检测到 {len(elements)} 个可点击元素。")
 
             for elem in elements:
+
+                time.sleep(3) # 权宜之计
                 success = self._explore_single_element(elem, current_page, queue)
                 if not success:
                     # 如果返回 False，说明发生了致命错误（如无法回退到基础页面或 ADB 断开），中断当前页面的后续探索
@@ -77,7 +82,7 @@ class Phase1Explorer:
         """
         cx, cy = elem['center']
         
-        # 去重：如果已经点过，相当于原循环里的 continue
+         # 去重
         if any(abs(cx - vx) < 20 and abs(cy - vy) < 20 for vx, vy in current_page.visited_elements):
             return True
         
@@ -88,7 +93,14 @@ class Phase1Explorer:
         btn_name = elem.get('text') or elem.get('desc') or '未知组件'
         logging.info(f"[{current_page.page_id}] 点击: ({cx}, {cy}) [{btn_name}]")
         
-        action = {'x': cx, 'y': cy, 'desc': btn_name, 'expected_image_path': ''}
+        # 把 bbox 直接存下来，供 Phase 2 生成意图使用
+        action = {
+            'x': cx, 
+            'y': cy, 
+            'bbox': elem['bounds'], 
+            'desc': btn_name, 
+            'expected_image_path': ''
+        }
         new_trajectory = current_page.trajectory + [action]
 
         self.controller.click(cx, cy, delay=2.5)
@@ -111,7 +123,8 @@ class Phase1Explorer:
         is_new, matched_id = self.memory.is_new_page(temp_img)
 
         if is_new:
-            new_page_id = self.memory.add_page(temp_img, new_trajectory)
+            # 【修改点】传入当前页面 ID 作为新页面的 parent_page_id
+            new_page_id = self.memory.add_page(temp_img, new_trajectory, parent_page_id=current_page.page_id)
             logging.info(f"  -> ⭐ 发现新页面骨架! 记录为 {new_page_id}")
 
             new_page_node = self.memory.get_page(new_page_id)
