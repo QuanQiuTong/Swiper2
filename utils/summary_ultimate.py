@@ -19,6 +19,10 @@ def clean_and_extract_valid_data(pkg_dir: Path, json_filename: str):
     
     for item in raw_data:
         before_img = pkg_dir / item['img_filename']
+        if 'after_image' not in item:
+            print(f"  [警告] 记录缺失 after_image 字段，暂时保留: {item['img_filename']}")
+            valid_data.append(item)  # 先保留，后续可以人工核实是否需要剔除
+            continue
         after_img = pkg_dir / item['after_image']
         
         # 核心逻辑：只有两张图片都完好无损，才认为是有效数据
@@ -69,7 +73,7 @@ def generate_ultimate_summary():
             orig_before_name = item['img_filename']
             
             # 防冲突：用包名作为前缀重命名文件
-            new_img_name = f"{pkg_name}_{orig_before_name.replace("_before", "")}"
+            new_img_name = f"{pkg_name}_{orig_before_name.replace("_before", "")}".replace("else_", "")  # 可选：如果包名有 else_ 前缀，可以在这里清理掉
             new_item['img_filename'] = new_img_name
             
             # 删除多余的 after_image 字段
@@ -109,6 +113,47 @@ def generate_ultimate_summary():
     print(f"   -> Swipe 动作: {len(all_swipes_aggregated)} 条")
     print(f"   -> Click 动作: {len(all_clicks_aggregated)} 条")
     print(f"📁 数据集已安全打包至: {all_dir.absolute()}")
+
+    # ==========================
+    # 🌟 新增：统计每个包的有效数据量分布
+    # ==========================
+    app_stats = {}
+
+    # 统计 Click
+    for item in all_clicks_aggregated:
+        app_name = item['img_filename'].split("_")[0]
+        if app_name not in app_stats:
+            app_stats[app_name] = {'click': 0, 'swipe': 0}
+        app_stats[app_name]['click'] += 1
+
+    # 统计 Swipe
+    for item in all_swipes_aggregated:
+        app_name = item['img_filename'].split("_")[0]
+        if app_name not in app_stats:
+            app_stats[app_name] = {'click': 0, 'swipe': 0}
+        app_stats[app_name]['swipe'] += 1
+
+    # 生成 Markdown 格式输出
+    md_output = "\n### 📈 数据集 App 分布统计\n\n"
+    md_output += "| App (包名) | Click (点击) | Swipe (滑动) | Total (总计) |\n"
+    md_output += "| :--- | :---: | :---: | :---: |\n"
+
+    total_c = 0
+    total_s = 0
+
+    # 按包名按照字母顺序排序遍历
+    for app_name, counts in sorted(app_stats.items()):
+        c = counts['click']
+        s = counts['swipe']
+        t = c + s
+        total_c += c
+        total_s += s
+        md_output += f"| `{app_name}` | {c} | {s} | **{t}** |\n"
+
+    # 表格尾部统计总和
+    md_output += f"| **总计 (All)** | **{total_c}** | **{total_s}** | **{total_c + total_s}** |\n"
+
+    print(md_output)
 
 if __name__ == "__main__":
     generate_ultimate_summary()
