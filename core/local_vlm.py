@@ -1,125 +1,176 @@
 import torch
-from transformers import AutoModelForImageTextToText, AutoProcessor
-from PIL import Image
 import json
-import logging
+import os
+from PIL import Image
 from pathlib import Path
-from core.prompts import prompt_slidable_regions, prompt_generate_intension
+from transformers import AutoModelForImageTextToText, AutoProcessor
+
+from core.prompts import (
+    REGION_TASK_PROMPT_EN, REGION_EXAMPLE_ASSISTANT_EN,
+    COMPONENT_TASK_PROMPT_EN, COMPONENT_EXAMPLE_PROMPT_EN, COMPONENT_EXAMPLE_ASSISTANT_EN,
+    CLICK_TASK_PROMPT_EN, CLICK_EXAMPLE_PROMPT_EN, CLICK_EXAMPLE_ASSISTANT_EN
+)
 
 class LocalVLMClient:
-    def __init__(self, model_path=r"D:\Games\Qwen3-VL-4B-Instruct"):
-        """初始化并加载本地的 Qwen3-VL 模型"""
-        logging.info(f"  [LocalVLM] 正在加载本地模型: {model_path} ...")
+    def __init__(self, model_path=r""):
+        """初始化并加载本地的 VL 模型"""
+        print(f"  [LocalVLM] 正在加载本地模型: {model_path} ...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        # 加载模型 (默认使用 fp16 精度以节省显存，Qwen3-VL-4B 大约需要 8-10GB 显存)
+        # 加载模型
         self.model = AutoModelForImageTextToText.from_pretrained(
             model_path,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True
         )
-        
-        # 加载处理器
-        self.processor = AutoProcessor.from_pretrained(
-            model_path,
-            trust_remote_code=True
-        )
+        self.processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
         self.model.eval()
-        logging.info(f"[LocalVLM] 模型加载完成！当前使用设备: {self.device}")
+        
+        # 预加载 One-Shot 示例图 (如果文件不存在，退化为 zero-shot)
+        self.ex_region_img = None
+        self.ex_comp_img = None
+        
+        ex_region_path = "examples/example_region.png"
+        ex_comp_path = "examples/example_component.png"
+        
+        if os.path.exists(ex_region_path):
+            self.ex_region_img = Image.open(ex_region_path).convert("RGB")
+        if os.path.exists(ex_comp_path):
+            self.ex_comp_img = Image.open(ex_comp_path).convert("RGB")
+            
+        print(f"  [LocalVLM] 模型加载完成！")
+
+    def _generate_text(self, target_image: Image.Image, target_prompt: str, 
+                       ex_image: Image.Image = None, ex_user_prompt: str = "", 
+                       ex_assistant_reply: str = "", max_tokens: int = 2048) -> str:
+        """核心推理引擎：组装多轮对话并执行本地推理"""
+        messages =[]
+        
+        # 1. 构造 One-Shot 历史对话
+        if ex_image is not None:
+            messages.append({
+                "role": "user",
+                "content":[
+                    {"type": "image", "image": ex_image},
+                    {"type": "text", "text": ex_user_prompt}
+                ]
+            })
+            messages.append({
+                "role": "assistant",
+                "content": ex_assistant_reply
+            })
+            
+        # 2. 构造当前目标的提问
+        final_target_prompt = target_prompt
+        if ex_image is not None:
+            final_target_prompt = f"Now please analyze the current screenshot based on the standards above.\n\n{target_prompt}"
+
+        messages.append({
+            "role": "user",
+            "content":[
+                {"type": "image", "image": target_image},
+                {"type": "text", "text": final_target_prompt}
+            ]
+        })
+        
+        # 3. 模板渲染与张量化
+        text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        images = [img["image"] for msg in messages for img in msg["content"] if img["type"] == "image"]
+        inputs = self.processor(text=[text], images=images, return_tensors="pt", padding=True).to(self.device)
+        
+        # 4. 执行推理
+        with torch.no_grad():
+            output_ids = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False)
+            
+        gen_ids = output_ids[:, inputs.input_ids.shape[1]:]
+        result_text = self.processor.batch_decode(gen_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        
+        return result_text
 
     def analyze_slidable_regions(self, image_path: str) -> list:
-        """读取本地图片，本地跑前向推理，返回可滑动区域列表"""
-        prompt = prompt_slidable_regions
+        """视觉分析：专门找出大面积可滑动区域"""
         try:
-            logging.info(f"  [LocalVLM] 正在分析图片: {Path(image_path).name} ...")
-            image = Image.open(image_path).convert("RGB")
+            print(f"  [LocalVLM] 正在本地分析纯视觉区域 (One-Shot): {Path(image_path).name} ...")
+            target_image = Image.open(image_path).convert("RGB")
             
-            # 构造 Qwen3-VL 需要的 message 格式
-            messages = [
-                {
-                    "role": "user",
-                    "content":[
-                        {"type": "image", "image": image},
-                        {"type": "text", "text": prompt}
-                    ]
-                }
-            ]
-            
-            # 模板套用
-            text = self.processor.apply_chat_template(
-                messages, 
-                tokenize=False, 
-                add_generation_prompt=True
+            response_text = self._generate_text(
+                target_image=target_image,
+                target_prompt=REGION_TASK_PROMPT_EN,
+                ex_image=self.ex_region_img,
+                ex_user_prompt=REGION_TASK_PROMPT_EN,
+                ex_assistant_reply=REGION_EXAMPLE_ASSISTANT_EN,
+                max_tokens=2048
             )
-            
-            # 数据预处理
-            inputs = self.processor(
-                text=[text],
-                images=[image],
-                padding=True,
-                return_tensors="pt"
-            ).to(self.device)
-            
-            # 模型生成
-            with torch.no_grad():
-                generated_ids = self.model.generate(
-                    **inputs,
-                    max_new_tokens=1024,
-                    do_sample=False  # 关闭随机采样，保证输出更确定的 JSON 结构
-                )
-            
-            # 截取新生成的 tokens（去掉 prompt 部分）
-            generated_ids_trimmed = [
-                out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-            ]
-            
-            # 解码结果
-            response_text = self.processor.batch_decode(
-                generated_ids_trimmed,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False
-            )[0]
-            
-            logging.info(f"  [LocalVLM] 模型原始输出 -> \n{response_text}\n")
             return self._parse_json_response(response_text)
-            
         except Exception as e:
-            logging.error(f"  [LocalVLM] 推理发生错误: {e}")
+            print(f"  [LocalVLM] 区域推理发生错误: {e}")
             return[]
 
-    
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
-        """专门为 Phase 1 从 XML 中找到的可滑动组件生成操作意图"""
-        # 将物理坐标转换为归一化坐标以辅助 VLM 定位
-        w, h = 1080, 2400 # 填入你的设备实际分辨率，或通过参数传入
-        norm_bbox =[int(bbox[0]/w*1000), int(bbox[1]/h*1000), int(bbox[2]/w*1000), int(bbox[3]/h*1000)]
-        
-        prompt = prompt_generate_intension.format(norm_bbox, direction, context_text)
-        
+        """为 XML 中提取的可滑动组件生成意图"""
         try:
-            image = Image.open(image_path).convert("RGB")
-            messages = [{"role": "user", "content":[{"type": "image", "image": image}, {"type": "text", "text": prompt}]}]
-            text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            inputs = self.processor(text=[text], images=[image], padding=True, return_tensors="pt").to(self.device)
+            w, h = 1080, 2400
+            norm_bbox = [
+                int(bbox[0]/w*1000), int(bbox[1]/h*1000),
+                int(bbox[2]/w*1000), int(bbox[3]/h*1000)
+            ]
             
-            with torch.no_grad():
-                generated_ids = self.model.generate(**inputs, max_new_tokens=100, do_sample=False)
+            target_prompt = COMPONENT_TASK_PROMPT_EN.format(norm_bbox, direction, context_text)
+            target_image = Image.open(image_path).convert("RGB")
             
-            trimmed_ids =[out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)]
-            response_text = self.processor.batch_decode(trimmed_ids, skip_special_tokens=True)[0].strip()
+            response_text = self._generate_text(
+                target_image=target_image,
+                target_prompt=target_prompt,
+                ex_image=self.ex_comp_img,
+                ex_user_prompt=COMPONENT_EXAMPLE_PROMPT_EN,
+                ex_assistant_reply=COMPONENT_EXAMPLE_ASSISTANT_EN,
+                max_tokens=512
+            )
             
+            response_text = response_text.strip()
+            if "</think>" in response_text:
+                return response_text.split("</think>")[-1].strip()
             return response_text
         except Exception as e:
-            logging.error(f"  [LocalVLM] 生成 XML 组件意图失败: {e}")
-            return f"沿 {direction} 方向滑动该组件"
+            print(f"  [LocalVLM] 生成意图失败: {e}")
+            return f"Swipe {direction} on this component"
+
+    def generate_intent_for_click(self, image_path: str, bbox: list, context_text: str) -> str:
+        """为点击操作生成意图"""
+        try:
+            w, h = 1080, 2400
+            norm_bbox = [
+                int(bbox[0]/w*1000), int(bbox[1]/h*1000),
+                int(bbox[2]/w*1000), int(bbox[3]/h*1000)
+            ]
+            
+            target_prompt = CLICK_TASK_PROMPT_EN.format(norm_bbox, context_text)
+            target_image = Image.open(image_path).convert("RGB")
+            
+            # 点击意图同样复用 Component 的示例图（因为它也能表现出理解 Bbox 的能力）
+            response_text = self._generate_text(
+                target_image=target_image,
+                target_prompt=target_prompt,
+                ex_image=self.ex_comp_img,
+                ex_user_prompt=CLICK_EXAMPLE_PROMPT_EN,
+                ex_assistant_reply=CLICK_EXAMPLE_ASSISTANT_EN,
+                max_tokens=512
+            )
+            
+            response_text = response_text.strip()
+            if "</think>" in response_text:
+                return response_text.split("</think>")[-1].strip()
+            return response_text
+        except Exception as e:
+            print(f"  [LocalVLM] 生成点击意图失败: {e}")
+            return f"Tap on the component '{context_text}'"
 
     def _parse_json_response(self, text: str) -> list:
-        """从大模型的文本中剥离并解析 JSON 数组"""
         start = text.find('[')
         end = text.rfind(']') + 1
         if start == -1 or end == 0:
-            return []
+            return[]
         
         json_str = text[start:end]
         try:
@@ -130,5 +181,5 @@ class LocalVLMClient:
                     valid_regions.append(r)
             return valid_regions
         except Exception as e:
-            logging.error(f"  [LocalVLM] JSON 解析失败: {e}\n  [解析用字符串]: {json_str}")
-            return[]
+            print(f"[LocalVLM] JSON 解析失败: {e}")
+            return

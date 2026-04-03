@@ -1,4 +1,3 @@
-# remote_server2.py
 import base64
 import io
 import torch
