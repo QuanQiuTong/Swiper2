@@ -1,14 +1,13 @@
 PACKAGE_INSTALLED = {
-    # "DeepSeek": "com.deepseek.chat",      # √
-    # "Wiser": "com.wisernow.android",      # 没多少页面，还充满了广告，不推荐。
-    # "Perplexity": "ai.perplexity.app.android",
+    "DeepSeek": "com.deepseek.chat",      # √
+    "Wiser": "com.wisernow.android",      # 没多少页面，还充满了广告，不推荐。
+    "Perplexity": "ai.perplexity.app.android",
     
-    # "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
+    "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
 
-    # "Reddit": "com.reddit.frontpage",     # √
-    # "X/Twitter": "com.twitter.android",   # √
-    # "Threads": "com.instagram.barcelona", # 需要 Instagram 账号登录，暂不适合自动化测试
-    # "Spotify": "com.spotify.music",       # √
+    "Reddit": "com.reddit.frontpage",     # √
+    "X/Twitter": "com.twitter.android",   # √
+    "Spotify": "com.spotify.music",       # √
 
     "ChatGPT": "com.openai.chatgpt",
     "Perplexity": "ai.perplexity.app.android", # 新
@@ -16,10 +15,15 @@ PACKAGE_INSTALLED = {
     "Manus": "tech.butterfly.app",  # Manus AI 办公助手，2025年新兴的效率工具，界面复杂且充满动态内容，非常适合测试 SoM 能力。
     "Gemini": "com.google.android.googlequicksearchbox", #
     "Youtube": "com.google.android.youtube",
-    "Copilot": "com.microsoft.copilot", # Microsoft Copilot App，2025年新发布的 AI 办公助手，界面复杂且充满动态内容，非常适合测试 SoM 能力。
-    "Discord": "com.discord", # 新
-    
+    "Copilot": "com.microsoft.copilot",
+
     "Finch": "com.finch.finch", # 新
+    "Arc Search": "company.thebrowser.arc",        # 极具创新的浏览器UI，非传统导航
+    "Bluesky": "xyz.blueskyweb.app",               # 2025年初用户暴增，全新改版
+    "Wiser": "com.wisernow.android",               # 卡片化视听结合 UI]
+    "Lemon8": "com.bd.nproject",
+    "Comet": "ai.perplexity.comet",
+    "Character.AI": "ai.character.app", # 2025年新晋爆火的 AI 聊天应用，界面复杂且充满动态内容，非常适合测试 SoM 能力。
 }
 
 
@@ -79,4 +83,52 @@ PACKAGE_HOT_CN = {
     "Meituan": "com.sankuai.meituan",              # 美团 (首页堪称功能入口大满贯，测试SoM极限)
     "Taobao": "com.taobao.taobao",                 # 淘宝 (瀑布流与复杂卡片的终极考验)
     "NetEase Music": "com.netease.cloudmusic",     # 网易云音乐 (转盘UI，复杂的播放页)
+}
+
+PACKAGES2 = {
+    # "SHEIN":"com.zzkko",
+    # "deepseek":"com.deepseek.chat",
+    # "网易云音乐": "com.netease.cloudmusic",
+    # "京东": "com.jingdong.app.mall",
+    "QQ": "com.tencent.mobileqq",
+    "哔哩哔哩": "tv.danmaku.bili",
+    # "知乎": "com.zhihu.android",
+    # "美团": "com.sankuai.meituan"
+}
+
+PACKAGES3 = {
+    "Youtube": "com.google.android.youtube",
+    "Google Maps": "com.google.android.apps.maps",
+    "Discord": "com.discord",
+    "Zoom": "us.zoom.videomeetings",
+    "Whatsapp": "com.whatsapp",
+}
+
+PACKAGE_NEW = {
+    # "viggle.ai": "com.warpengine.viggle",
+    # "gemini": "com.google.android.googlequicksearchbox",
+    # "wiser": "com.wisernow.android",
+    # "finch": "com.finch.finch",
+    # "manus": "tech.butterfly.app",
+
+    # "Perplexity Comet": "ai.perplexity.comet",
+    # "Perplexity AI": "ai.perplexity.app.android",
+    # "Arc Search": "company.thebrowser.arc",
+    # "Focus Friend": "com.underthing.focus.friend",
+    # "Pingo AI": "com.picoai.languageapp.android",
+
+    "Perch Reader": "com.gmlabs.perch",
+    "OmniTools": "com.snitl.omnitools",
+    "Stellarium": "com.noctuasoftware.stellarium_free",
+    "Jagat": "io.jagat.lite",
+    "Bluesky": "xyz.blueskyweb.app",
+    "Arts & Culture": "com.google.android.apps.cultural",
+}
+
+PACKAGE_HOT = {
+    "TikTok": "com.zhiliaoapp.musically",
+    "Instagram": "com.instagram.android",
+    "Facebook": "com.facebook.katana",
+    "Twitter": "com.twitter.android",
+    "Snapchat": "com.snapchat.android",
 }

@@ -161,25 +161,7 @@ class OfflineClickSynthesis:
 
 
 from utils.packages import PACKAGE_ANDROID_WORLD, PACKAGE_NEW, PACKAGE_HOT_GLOBAL, PACKAGE_HOT_CN, PACKAGE_INSTALLED
-APP = {
-    "DeepSeek": "com.deepseek.chat",      # √
-    "Wiser": "com.wisernow.android",      # 没多少页面，还充满了广告，不推荐。
-    "Perplexity": "ai.perplexity.app.android",
-    
-    "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
 
-    "Reddit": "com.reddit.frontpage",     # √
-    "X/Twitter": "com.twitter.android",   # √
-    "Spotify": "com.spotify.music",       # √
-
-    "ChatGPT": "com.openai.chatgpt",
-    "Perplexity": "ai.perplexity.app.android", # 新
-    "Whatsapp": "com.whatsapp.w4b",
-    "Manus": "tech.butterfly.app",  # Manus AI 办公助手，2025年新兴的效率工具，界面复杂且充满动态内容，非常适合测试 SoM 能力。
-    "Gemini": "com.google.android.googlequicksearchbox", #
-    "Youtube": "com.google.android.youtube",
-    "Copilot": "com.microsoft.copilot"
-}
 if __name__ == "__main__":
-    for target_app in APP.values():
+    for target_app in PACKAGE_INSTALLED.values():
         OfflineClickSynthesis(package_name=target_app).run_synthesis()

@@ -12,9 +12,7 @@ def summary(packages: dict):
 
     summary = []
 
-    def summary_app(name, pkg):
-        print(f"\n=== 整理应用: {name} ({pkg}) ===")
-
+    def summary_app(pkg):
         dataset_path = Path(f"./outputs/{pkg}_dataset/swipe_dataset.json")
 
         if not dataset_path.exists():
@@ -28,6 +26,13 @@ def summary(packages: dict):
         if len(data) <= 1:
             print("异常数据：滑动记录过少，跳过整理。")
             return
+        
+        with open(f"click/{pkg}_dataset/click_dataset.json", 'r', encoding='utf-8') as f:
+            click_data = json.load(f)
+        print(f"原始点击数据集中共有 {len(click_data)} 条记录。")
+
+        data += click_data
+        print(f"合并点击数据后共有 {len(data)} 条记录。")
 
         for record in data:
             src_before = Path(record['img_filename'])
@@ -64,7 +69,8 @@ def summary(packages: dict):
             print(f"  ✔ 已处理: {new_before_name}")
 
     for name, pkg in packages.items():
-        summary_app(name, pkg)
+        print(f"\n=== 整理应用: {name} ({pkg}) ===")
+        summary_app(pkg)
 
     # === 保存 summary ===
     summary_path = out_dir / "summary.json"

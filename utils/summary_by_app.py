@@ -108,6 +108,10 @@ if __name__ == "__main__":
         "com.finch.finch",
         "xyz.blueskyweb.app",
         "company.thebrowser.arc",
+        "com.bd.nproject",
+        "ai.perplexity.comet",
+        "ai.character.app",
+        "com.wisernow.android"
     ]
     
     for app in apps_to_summarize:
