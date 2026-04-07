@@ -20,7 +20,7 @@ def clean_and_extract_valid_data(pkg_dir: Path, json_filename: str):
     for item in raw_data:
         before_img = pkg_dir / item['img_filename']
         if 'after_image' not in item:
-            print(f"  [警告] 记录缺失 after_image 字段，暂时保留: {item['img_filename']}")
+            print(f"  [Warning] Record missing 'after_image' field, temporarily kept: {item['img_filename']}")
             valid_data.append(item)  # 先保留，后续可以人工核实是否需要剔除
             continue
         after_img = pkg_dir / item['after_image']
@@ -36,7 +36,7 @@ def clean_and_extract_valid_data(pkg_dir: Path, json_filename: str):
     return valid_data
 
 def generate_ultimate_summary():
-    print(f"\n=== 🚀 开始执行终极数据集清洗与聚合 ===")
+    print(f"\n=== 🚀 Starting Ultimate Dataset Cleaning and Aggregation ===")
     summary_base = Path("summary")
     
     # 准备并清空聚合输出目录
@@ -56,7 +56,7 @@ def generate_ultimate_summary():
         if not pkg_dir.is_dir() or pkg_name == "all":
             continue
             
-        print(f"  -> 正在清洗与聚合: {pkg_name}")
+        print(f"  -> Cleaning and aggregating: {pkg_name}")
         
         # 1. 清洗并获取有效数据
         valid_swipes = clean_and_extract_valid_data(pkg_dir, "summary_swipe.json")
@@ -108,14 +108,14 @@ def generate_ultimate_summary():
     with open(all_dir / "summary_all.json", 'w', encoding='utf-8') as f:
         json.dump(all_swipes_aggregated + all_clicks_aggregated, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ 终极汇总完成！")
-    print(f"📊 总计获得【高质量金标准】测试用例：")
-    print(f"   -> Swipe 动作: {len(all_swipes_aggregated)} 条")
-    print(f"   -> Click 动作: {len(all_clicks_aggregated)} 条")
-    print(f"📁 数据集已安全打包至: {all_dir.absolute()}")
+    print(f"\n✅ Ultimate aggregation complete!")
+    print(f"📊 Total high-quality gold-standard test cases obtained:")
+    print(f"   -> Swipe Actions: {len(all_swipes_aggregated)}")
+    print(f"   -> Click Actions: {len(all_clicks_aggregated)}")
+    print(f"📁 Dataset securely packaged to: {all_dir.absolute()}")
 
     # ==========================
-    # 🌟 新增：统计每个包的有效数据量分布
+    # 🌟 统计每个包的有效数据量分布
     # ==========================
     app_stats = {}
 
@@ -134,8 +134,8 @@ def generate_ultimate_summary():
         app_stats[app_name]['swipe'] += 1
 
     # 生成 Markdown 格式输出
-    md_output = "\n### 📈 数据集 App 分布统计\n\n"
-    md_output += "| App (包名) | Click (点击) | Swipe (滑动) | Total (总计) |\n"
+    # md_output = "\n### 📈 Stat of App distribution in this dataset \n\n"
+    md_output += "| App | Click | Swipe | Total |\n"
     md_output += "| :--- | :---: | :---: | :---: |\n"
 
     total_c = 0
@@ -151,7 +151,7 @@ def generate_ultimate_summary():
         md_output += f"| `{app_name}` | {c} | {s} | **{t}** |\n"
 
     # 表格尾部统计总和
-    md_output += f"| **总计 (All)** | **{total_c}** | **{total_s}** | **{total_c + total_s}** |\n"
+    md_output += f"| **All** | **{total_c}** | **{total_s}** | **{total_c + total_s}** |\n"
 
     print(md_output)
 

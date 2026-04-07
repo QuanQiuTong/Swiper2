@@ -45,44 +45,44 @@ PACKAGE_ANDROID_WORLD = {
 }
 
 PACKAGE_NEW = {
-    # --- 2025 爆火的 AI 与效率工具 (全新 UI 形态) ---
-    "DeepSeek": "com.deepseek.chat",               # 2025年登顶，全新思考链交互UI
-    "Perplexity": "ai.perplexity.app.android",     # 搜索与对话结合的复杂交互
-    "Arc Search": "company.thebrowser.arc",        # 极具创新的浏览器UI，非传统导航
-    "Gemini": "com.google.android.apps.bard",      # 2025年大幅重构的 Google AI 界面
+    # --- 2025 Trending AI & Productivity Tools (Novel UI Paradigms) ---
+    "DeepSeek": "com.deepseek.chat",               # Top app in 2025, novel Chain-of-Thought UI
+    "Perplexity": "ai.perplexity.app.android",     # Complex interaction combining search & chat
+    "Arc Search": "company.thebrowser.arc",        # Innovative browser UI, non-traditional navigation
+    "Gemini": "com.google.android.apps.bard",      # Massively refactored Google AI interface
     
-    # --- 新兴社交与通讯 (去中心化/新势力) ---
-    "Bluesky": "xyz.blueskyweb.app",               # 2025年初用户暴增，全新改版
-    "Threads": "com.instagram.barcelona",          # 纯文本流，极简风格的极致代表
-    "Jagat": "io.jagat.lite",                      # 结合地图与社交的新兴 App
+    # --- Emerging Social & Communication ---
+    "Bluesky": "xyz.blueskyweb.app",               # Massive user growth in early 2025, newly redesigned
+    "Threads": "com.instagram.barcelona",          # Pure text feed, extreme minimalist style
+    "Jagat": "io.jagat.lite",                      # Emerging app combining maps and social features
     
-    # --- 创新交互与小众高分应用 (2025 Google Play 年度榜单常客) ---
-    "Focus Friend": "com.underthing.focus.friend", # 游戏化 UI，打破常规布局
-    "Wiser": "com.wisernow.android",               # 卡片化视听结合 UI
-    "Finch": "com.finch.finch",                    # 宠物养成式习惯打卡，大量非标准组件
-    "Perch Reader": "com.gmlabs.perch",            # 新型阅读器
+    # --- Innovative Interactions & Highly-rated Niche Apps ---
+    "Focus Friend": "com.underthing.focus.friend", # Gamified UI, unconventional layout
+    "Wiser": "com.wisernow.android",               # Card-based audio-visual integrated UI
+    "Finch": "com.finch.finch",                    # Pet-raising habit tracker, numerous non-standard components
+    "Perch Reader": "com.gmlabs.perch",            # Novel reading application
 }
 
 PACKAGE_HOT_GLOBAL = {
-    # --- 终极信息流测试 (高度依赖滑动) ---
-    "TikTok": "com.zhiliaoapp.musically",          # 沉浸式全屏滑动、极少可见按钮
-    "Instagram": "com.instagram.android",          # 横向滑动的 Stories，纵向滑动的 Feed
-    "Twitter/X": "com.twitter.android",            # 密集的图文穿插、侧边抽屉菜单
-    "Reddit": "com.reddit.frontpage",              # 复杂的帖子折叠、多层级评论区
+    # --- Ultimate Feed Testing (Highly swipe-dependent) ---
+    "TikTok": "com.zhiliaoapp.musically",          # Immersive full-screen swiping, minimal visible buttons
+    "Instagram": "com.instagram.android",          # Horizontal Stories, vertical Feeds
+    "Twitter/X": "com.twitter.android",            # Dense interweaving of text and images, side drawers
+    "Reddit": "com.reddit.frontpage",              # Complex post collapsing, multi-level comment sections
     
-    # --- 强业务逻辑测试 ---
-    "Spotify": "com.spotify.music",                # 底部悬浮播放器、复杂动态列表
-    "Amazon": "com.amazon.mShop.android.shopping", # 变态级密度的电商卡片与筛选逻辑
-    "Discord": "com.discord",                      # 极度复杂的多层级侧边栏导航
+    # --- Strong Business Logic Testing ---
+    "Spotify": "com.spotify.music",                # Floating bottom player, complex dynamic lists
+    "Amazon": "com.amazon.mShop.android.shopping", # Extreme density of e-commerce cards and filtering logic
+    "Discord": "com.discord",                      # Highly complex multi-level sidebar navigation
 }
 
 PACKAGE_HOT_CN = {
-    # --- 国民级应用 ---
-    "WeChat": "com.tencent.mm",                    # 微信 (包含复杂的列表和底部导航)
-    "Bilibili": "tv.danmaku.bili",                 # B站 (极其密集的视频封面网格、弹幕UI)
-    "Meituan": "com.sankuai.meituan",              # 美团 (首页堪称功能入口大满贯，测试SoM极限)
-    "Taobao": "com.taobao.taobao",                 # 淘宝 (瀑布流与复杂卡片的终极考验)
-    "NetEase Music": "com.netease.cloudmusic",     # 网易云音乐 (转盘UI，复杂的播放页)
+    # --- National-level Mega Apps ---
+    "WeChat": "com.tencent.mm",                    # Complex lists and bottom navigation
+    "Bilibili": "tv.danmaku.bili",                 # Extremely dense video cover grids, bullet screen UI
+    "Meituan": "com.sankuai.meituan",              # Mega-app with overwhelming functional entries
+    "Taobao": "com.taobao.taobao",                 # Ultimate test for waterfall feeds and complex cards
+    "NetEase Music": "com.netease.cloudmusic",     # Vinyl record UI, complex playback pages
 }
 
 PACKAGES2 = {

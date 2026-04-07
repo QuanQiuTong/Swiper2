@@ -242,7 +242,7 @@ class Phase2Swiper:
     def validate_swipe(self, idx, candidate, page_id):
         logging.info(f"\n[Executing {idx+1}] {candidate.get('category')} | Intent: {candidate.get('command')}")
 
-        # 【防抖补丁 2】在截取滑动前的参照图之前，必须保证页面已经彻底没有在 Loading 状态了
+        # Debounce: Ensure no loading indicators remain before taking the baseline screenshot
         time.sleep(8)
         self.controller.wait_for_loading_to_finish()
 

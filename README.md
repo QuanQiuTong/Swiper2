@@ -1,25 +1,40 @@
-# Swiper2
-Swiper2 是一个 Android UI 自动化测试工具，专注于滑动交互的测试和数据收集。
+# Swiper2: Android UI Automation & Dataset Synthesis
 
-- Phase 1: 快速探索App的页面
-- Phase 2: 找出页面中的滑动交互并验证
+Swiper2 is an automated exploration and interaction synthesis tool designed for Android UI testing. It focuses on collecting high-quality dynamic sliding (swipe) and clicking interactions without human intervention.
 
-## 运行
-安装依赖：`pip install -r requirements.txt`，如果使用本地VLM还需要安装torch、transformers和pillow。
+## Pipeline Overview
 
-连接Android设备（真机或模拟器），确保adb能够识别到设备。
+- **Phase 1 (Automated Exploration):** Rapidly explores application pages using DFS/BFS algorithms based on XML accessibility trees, building a structured state-graph of the application UI.
+- **Phase 2 (Interaction Synthesis):** Leverages a Vision-Language Model (VLM) offline to identify slidable regions and generate natural language intents. It then physically replays trajectories to verify and collect valid `<Before_Image, Intent, Action, After_Image>` pairs.
 
-先在utils/packages.py中配置好要测试的APP包名，然后运行：
+## Installation
 
+1. Install basic dependencies:
+```bash
+pip install -r requirements.txt
+```
+2. *(Optional)* If using a local VLM for offline synthesis, install PyTorch and Transformers:
+```bash
+pip install torch transformers pillow
+```
+
+## Usage
+
+1. **Device Connection:**
+   Connect your Android device (physical smartphone or emulator) and ensure it is authorized via ADB (`adb devices`).
+
+2. **Configuration:**
+   Specify the target Application package names in `utils/packages.py`.
+
+3. **Run Exploration & Synthesis:**
 ```bash
 python explore.py
 ```
-运行结束后，所有的截图（包括滑动前后）会保存在`./outputs/{package_name}_dataset`目录下。
+*Note: After execution, all screenshots, XML view hierarchies, and trajectory JSONs will be saved in the `./outputs/{package_name}_dataset` directory.*
 
+4. **Data Aggregation:**
+To aggregate and clean the verified interaction data into a unified dataset structure, run the ultimate summary script:
 ```bash
-python summary.py
+python utils/summary_ultimate.py
 ```
-summary.py会将它们整理到`./summary`目录下并重命名。只包括滑动前的截图。  
-需要滑动后的截图则可以将summary.py中的SAVE_AFTER设置为True。
-
-*为了方便也可以运行`explore_and_summary.py`，不过容易搞乱文件结构*
+This will output the final clean dataset into the `./summary/all` directory.

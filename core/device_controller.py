@@ -182,8 +182,9 @@ class UIAutomatorController:
                 return
             if self.get_current_package() == "com.lbe.security.miui":
                 logging.warning(f"  [Device] Security popup intercepted, attempting to bypass...")
-                # This coordinate is for Xiaomi 12S Ultra's "Allow" button; adjust for other devices
-                self.click(540, 2200, delay=1.0)
+                # Dynamically calculate the bottom-center coordinate for the "Allow" button
+                w, h = self.window_size
+                self.click(w // 2, int(h * 0.91), delay=1.0)
             elif self.get_current_package() == "com.google.android.gms":
                 logging.warning(f"  [Device] GMS prompt detected, allowing to proceed...")
                 return

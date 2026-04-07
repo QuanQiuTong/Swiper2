@@ -49,7 +49,7 @@ class Phase1Explorer:
             logging.info(f"\n--- Exploring Page: {current_page_id} (Depth: {len(current_page.trajectory)}) ---")
             
             # 回放处理（如果断点恢复时刚好在查 page_0，则必须主动回到首页）
-                if len(current_page.trajectory) == 0:
+            if len(current_page.trajectory) == 0:
                 logging.info(f"  -> [Reset] Returning to home page...")
                 self.controller.reset_app(self.package)
                 time.sleep(1) 
