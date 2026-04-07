@@ -14,7 +14,7 @@ class Phase2Swiper:
 
         if use_local_vlm:
             from core.local_vlm import LocalVLMClient
-            self.vlm = LocalVLMClient(model_path=r"D:\Games\Qwen3-VL-4B-Instruct")
+            self.vlm = LocalVLMClient(model_path="Qwen/Qwen3-VL-4B-Instruct")
         else:
             from core.vlm_client import VLMClient
             self.vlm = VLMClient(server_url="http://127.0.0.1:8000")
@@ -215,7 +215,7 @@ class Phase2Swiper:
                 logging.error(f"  -> ❌ Exited target App during replay. Skipping this page.")
                 continue
 
-            # 【防抖补丁 1】：让 VLM 分析前，确保页面彻底加载出内容
+            # Debounce: Ensure page is fully loaded before VLM analysis
             self.controller.wait_for_loading_to_finish()
             time.sleep(8) # 额外加时，确保动态内容也加载出来了
 

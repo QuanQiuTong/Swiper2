@@ -29,20 +29,20 @@ PACKAGE_INSTALLED = {
 
 
 PACKAGE_ANDROID_WORLD = {
-        # "Settings": "com.android.settings",               # 系统设置
-        # "Calculator": "com.google.android.calculator",    # 计算器 (Pixel默认)
-        # "Clock": "com.google.android.deskclock",          # 时钟
-        # "Contacts": "com.google.android.contacts",        # 联系人
-        # "Files": "com.google.android.documentsui",        # 文件管理器
-        # "Chrome": "com.android.chrome",                   # 浏览器
-        # "Calendar": "com.google.android.calendar",        # 日历
-        # "Photos/Gallery": "com.google.android.apps.photos", # 相册
-        # "Camera": "com.android.camera2",                  # 相机 (AOSP原生) 或 com.google.android.GoogleCamera
-        # "Messages": "com.google.android.apps.messaging",  # 短信
-        # "Phone": "com.google.android.dialer",             # 拨号/电话
-        # "Maps": "com.google.android.apps.maps",           # 地图 (可选跳过登录)
-        "YouTube": "com.google.android.youtube",          # YouTube (可选跳过登录)
-    }
+    "Settings": "com.android.settings",               # 系统设置
+    "Calculator": "com.google.android.calculator",    # 计算器 (Pixel默认)
+    "Clock": "com.google.android.deskclock",          # 时钟
+    "Contacts": "com.google.android.contacts",        # 联系人
+    "Files": "com.google.android.documentsui",        # 文件管理器
+    "Chrome": "com.android.chrome",                   # 浏览器
+    "Calendar": "com.google.android.calendar",        # 日历
+    "Photos/Gallery": "com.google.android.apps.photos", # 相册
+    "Camera": "com.android.camera2",                  # 相机 (AOSP原生) 或 com.google.android.GoogleCamera
+    "Messages": "com.google.android.apps.messaging",  # 短信
+    "Phone": "com.google.android.dialer",             # 拨号/电话
+    "Maps": "com.google.android.apps.maps",           # 地图 (可选跳过登录)
+    "YouTube": "com.google.android.youtube",          # YouTube (可选跳过登录)
+}
 
 PACKAGE_NEW = {
     # --- 2025 爆火的 AI 与效率工具 (全新 UI 形态) ---
@@ -86,14 +86,14 @@ PACKAGE_HOT_CN = {
 }
 
 PACKAGES2 = {
-    # "SHEIN":"com.zzkko",
-    # "deepseek":"com.deepseek.chat",
-    # "网易云音乐": "com.netease.cloudmusic",
-    # "京东": "com.jingdong.app.mall",
+    "SHEIN":"com.zzkko",
+    "deepseek":"com.deepseek.chat",
+    "网易云音乐": "com.netease.cloudmusic",
+    "京东": "com.jingdong.app.mall",
     "QQ": "com.tencent.mobileqq",
     "哔哩哔哩": "tv.danmaku.bili",
-    # "知乎": "com.zhihu.android",
-    # "美团": "com.sankuai.meituan"
+    "知乎": "com.zhihu.android",
+    "美团": "com.sankuai.meituan"
 }
 
 PACKAGES3 = {
@@ -105,17 +105,17 @@ PACKAGES3 = {
 }
 
 PACKAGE_NEW = {
-    # "viggle.ai": "com.warpengine.viggle",
-    # "gemini": "com.google.android.googlequicksearchbox",
-    # "wiser": "com.wisernow.android",
-    # "finch": "com.finch.finch",
-    # "manus": "tech.butterfly.app",
+    "viggle.ai": "com.warpengine.viggle",
+    "gemini": "com.google.android.googlequicksearchbox",
+    "wiser": "com.wisernow.android",
+    "finch": "com.finch.finch",
+    "manus": "tech.butterfly.app",
 
-    # "Perplexity Comet": "ai.perplexity.comet",
-    # "Perplexity AI": "ai.perplexity.app.android",
-    # "Arc Search": "company.thebrowser.arc",
-    # "Focus Friend": "com.underthing.focus.friend",
-    # "Pingo AI": "com.picoai.languageapp.android",
+    "Perplexity Comet": "ai.perplexity.comet",
+    "Perplexity AI": "ai.perplexity.app.android",
+    "Arc Search": "company.thebrowser.arc",
+    "Focus Friend": "com.underthing.focus.friend",
+    "Pingo AI": "com.picoai.languageapp.android",
 
     "Perch Reader": "com.gmlabs.perch",
     "OmniTools": "com.snitl.omnitools",

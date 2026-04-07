@@ -30,8 +30,7 @@ class Phase1Explorer:
                     queue.append(p.page_id)
         else:
             self.controller.reset_app(self.package)
-            time.sleep(8) # 权宜之计
-            # 疑似没必要 # self.controller.wait_for_loading_to_finish()
+            time.sleep(8) # Wait for dynamic UI rendering
             
             temp_home = str(self.temp_dir / "temp_home.png")
             self.controller.take_screenshot(temp_home)
@@ -50,7 +49,7 @@ class Phase1Explorer:
             logging.info(f"\n--- Exploring Page: {current_page_id} (Depth: {len(current_page.trajectory)}) ---")
             
             # 回放处理（如果断点恢复时刚好在查 page_0，则必须主动回到首页）
-            if len(current_page.trajectory) == 0:
+                if len(current_page.trajectory) == 0:
                 logging.info(f"  -> [Reset] Returning to home page...")
                 self.controller.reset_app(self.package)
                 time.sleep(1) 
@@ -58,7 +57,7 @@ class Phase1Explorer:
                 if not self.controller.replay_trajectory(self.package, current_page.trajectory):
                     logging.error(f"  -> ❌ Failed to stably replay trajectory to {current_page_id}, abandoning exploration of this page.")
                     continue
-            time.sleep(8) # 权宜之计
+            time.sleep(8) # Wait for dynamic UI rendering
             
             elements = self.controller.get_clickable_elements_xml()
                 
@@ -66,7 +65,7 @@ class Phase1Explorer:
 
             for elem in elements:
 
-                time.sleep(8) # 权宜之计
+                time.sleep(8) # Wait for dynamic UI rendering
                 success = self._explore_single_element(elem, current_page, queue)
                 if not success:
                     # 如果返回 False，说明发生了致命错误（如无法回退到基础页面或 ADB 断开），中断当前页面的后续探索
