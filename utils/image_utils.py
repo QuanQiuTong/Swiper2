@@ -75,7 +75,7 @@ def calculate_image_diff(img_path1: str, img_path2: str, threshold=0.01) -> bool
     
     # 计算变化像素占总像素的比例
     change_ratio = np.count_nonzero(diff_thresh) / diff_thresh.size
-    print(f"[Verify] 界面变化比例: {change_ratio:.4f} (阈值: {threshold})")
+    print(f"[Verify] UI change ratio: {change_ratio:.4f} (Threshold: {threshold})")
     
     return change_ratio > threshold
     

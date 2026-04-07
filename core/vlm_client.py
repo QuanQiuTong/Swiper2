@@ -42,7 +42,7 @@ class VLMClient:
             payload["example_assistant_reply"] = REGION_EXAMPLE_ASSISTANT_EN
 
         try:
-            print(f"  [VLM Client] 正在远程分析纯视觉区域 (One-Shot): {Path(image_path).name} ...")
+            print(f"  [VLM Client] Analyzing visual regions (One-Shot): {Path(image_path).name} ...")
             resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=120)
             resp.raise_for_status()
             response_text = resp.json()["text"]
@@ -50,7 +50,7 @@ class VLMClient:
             # 你可以在这里 print(response_text) 来观察它的 <think> 过程
             return self._parse_json_response(response_text)
         except Exception as e:
-            print(f"  [VLM Client] 区域推理请求失败: {e}")
+            print(f"  [VLM Client] Region inference request failed: {e}")
             return[]
 
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
@@ -84,7 +84,7 @@ class VLMClient:
                 return response_text.split("</think>")[-1].strip()
             return response_text
         except Exception as e:
-            print(f"[VLM Client] 生成意图请求失败: {e}")
+            print(f"[VLM Client] Failed to generate intent: {e}")
             return f"Swipe {direction} on this component"
 
     def _parse_json_response(self, text: str) -> list:
@@ -102,7 +102,7 @@ class VLMClient:
                     valid_regions.append(r)
             return valid_regions
         except Exception as e:
-            print(f"[VLM Client] JSON 解析失败: {e}")
+            print(f"[VLM Client] JSON parsing failed: {e}")
             return
         
 
@@ -137,5 +137,5 @@ class VLMClient:
                 return response_text.split("</think>")[-1].strip()
             return response_text
         except Exception as e:
-            print(f"[VLM Client] 生成点击意图请求失败: {e}")
+            print(f"[VLM Client] Failed to generate intent: {e}")
             return f"Tap on the component '{context_text}'"

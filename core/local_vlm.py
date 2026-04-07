@@ -14,7 +14,7 @@ from core.prompts import (
 class LocalVLMClient:
     def __init__(self, model_path=r""):
         """初始化并加载本地的 VL 模型"""
-        print(f"  [LocalVLM] 正在加载本地模型: {model_path} ...")
+        print(f"  [LocalVLM] Loading local model: {model_path} ...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # 加载模型
@@ -39,7 +39,7 @@ class LocalVLMClient:
         if os.path.exists(ex_comp_path):
             self.ex_comp_img = Image.open(ex_comp_path).convert("RGB")
             
-        print(f"  [LocalVLM] 模型加载完成！")
+        print(f"  [LocalVLM] Model loaded successfully!")
 
     def _generate_text(self, target_image: Image.Image, target_prompt: str, 
                        ex_image: Image.Image = None, ex_user_prompt: str = "", 
@@ -91,7 +91,7 @@ class LocalVLMClient:
     def analyze_slidable_regions(self, image_path: str) -> list:
         """视觉分析：专门找出大面积可滑动区域"""
         try:
-            print(f"  [LocalVLM] 正在本地分析纯视觉区域 (One-Shot): {Path(image_path).name} ...")
+            print(f"  [LocalVLM] Analyzing visual regions (One-Shot): {Path(image_path).name} ...")
             target_image = Image.open(image_path).convert("RGB")
             
             response_text = self._generate_text(
@@ -104,7 +104,7 @@ class LocalVLMClient:
             )
             return self._parse_json_response(response_text)
         except Exception as e:
-            print(f"  [LocalVLM] 区域推理发生错误: {e}")
+            print(f"  [LocalVLM] Region inference error: {e}")
             return[]
 
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
@@ -133,7 +133,7 @@ class LocalVLMClient:
                 return response_text.split("</think>")[-1].strip()
             return response_text
         except Exception as e:
-            print(f"  [LocalVLM] 生成意图失败: {e}")
+            print(f"  [LocalVLM] Failed to generate intent: {e}")
             return f"Swipe {direction} on this component"
 
     def generate_intent_for_click(self, image_path: str, bbox: list, context_text: str) -> str:
@@ -163,7 +163,7 @@ class LocalVLMClient:
                 return response_text.split("</think>")[-1].strip()
             return response_text
         except Exception as e:
-            print(f"  [LocalVLM] 生成点击意图失败: {e}")
+            print(f"  [LocalVLM] Failed to generate intent: {e}")
             return f"Tap on the component '{context_text}'"
 
     def _parse_json_response(self, text: str) -> list:
@@ -181,5 +181,5 @@ class LocalVLMClient:
                     valid_regions.append(r)
             return valid_regions
         except Exception as e:
-            print(f"[LocalVLM] JSON 解析失败: {e}")
+            print(f"[LocalVLM] JSON parsing failed: {e}")
             return

@@ -12,7 +12,7 @@ SIM_THRESHOLD = 0.60
 class UIAutomatorController:
     def __init__(self, device_serial=None):
         self.d = u2.connect(device_serial)
-        logging.info(f"已连接设备: {self.d.info}")
+        logging.info(f"Device connected: {self.d.info}")
         self.window_size = self.d.window_size()
 
     def _extract_all_text_from_node(self, node):
@@ -76,7 +76,7 @@ class UIAutomatorController:
                         'resourceId': node.attrib.get('resource-id', '')
                     })
         except Exception as e:
-            logging.error(f"解析 XML 获取可点击节点时失败: {e}")
+            logging.error(f"Failed to parse XML for clickable nodes: {e}")
             
         return elements
 
@@ -134,12 +134,12 @@ class UIAutomatorController:
                             count += 1
                             
         except Exception as e:
-            logging.error(f"[Anonymize] XML解析异常: {e}")
+            logging.error(f"[Anonymize] XML parsing exception: {e}")
 
         # 只有在真正发生了打码时，才重新覆写图片，节省磁盘 I/O
         if count > 0:
             cv2.imwrite(output_path, img)
-            logging.info(f"  [Anonymize] 成功为 {count} 处敏感区域进行可解释性打码。")
+            logging.info(f"  [Anonymize] Successfully masked {count} sensitive regions.")
             
         return output_path
 
@@ -154,7 +154,7 @@ class UIAutomatorController:
             with open(xml_path, 'w', encoding='utf-8') as f:
                 f.write(xml_dump)
         except Exception as e:
-            logging.error(f"普通截图时 XML 导出失败: {e}")
+            logging.error(f"Failed to dump XML during standard screenshot: {e}")
 
     def get_current_package(self):
         """获取当前正在前台运行的 App 包名"""
@@ -172,35 +172,36 @@ class UIAutomatorController:
         time.sleep(delay)
 
     def reset_app(self, package_name, delay=2.0):
-        self.d.app_stop(self.get_current_package()) # 先停止当前应用，确保干净的启动环境
+        self.d.app_stop(self.get_current_package())  # stop current app to ensure a clean start
         time.sleep(0.5)
         self.d.app_start(package_name)
         time.sleep(delay)
         for attempt in range(3):
             if self.get_current_package() == package_name:
-                logging.info(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
+                logging.info(f"  [Device] App {package_name} launched and ready.")
                 return
             if self.get_current_package() == "com.lbe.security.miui":
-                logging.warning(f"  [Device] 发现系统安全中心的拦截提示，正在尝试自动点击允许...")
-                # 这个坐标是小米12S Ultra 的“允许”按钮位置，其他设备可能需要调整
+                logging.warning(f"  [Device] Security popup intercepted, attempting to bypass...")
+                # This coordinate is for Xiaomi 12S Ultra's "Allow" button; adjust for other devices
                 self.click(540, 2200, delay=1.0)
-            elif self.get_current_package() == "com.google.android.gms": # 针对 Pixel 设备的 Google Play 保护，通常会弹一个“继续”按钮
-                logging.warning(f"  [Device] 进入 GMS，暂时允许继续...")
+            elif self.get_current_package() == "com.google.android.gms":
+                logging.warning(f"  [Device] GMS prompt detected, allowing to proceed...")
                 return
-            logging.info(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
+            logging.info(f"  [Device ×{attempt+1}] Waiting for app to launch, currently at: {self.get_current_package()}")
             time.sleep(1)
 
-        self.d.app_start(package_name) # 最后再尝试一次启动，增加成功率
+        # Try starting again to increase chance of success
+        self.d.app_start(package_name)
         for attempt in range(3, 6):
             if self.get_current_package() == package_name:
-                logging.info(f"  [Device] 应用 {package_name} 已启动，准备就绪。")
+                logging.info(f"  [Device] App {package_name} launched and ready.")
                 return
             if self.get_current_package() == "com.lbe.security.miui":
-                logging.warning(f"  [Device] 发现系统安全中心的拦截提示，正在尝试自动返回...")
+                logging.warning(f"  [Device] Security popup intercepted, attempting to go back...")
                 self.d.press("back")
-            logging.info(f"  [Device ×{attempt+1}] 等待应用启动，当前位于: {self.get_current_package()}")
+            logging.info(f"  [Device ×{attempt+1}] Waiting for app to launch, currently at: {self.get_current_package()}")
             time.sleep(1)
-        raise RuntimeError(f"应用 {package_name} 启动失败，请检查设备状态。")
+        raise RuntimeError(f"Failed to launch app {package_name}. Please check device status.")
 
     def replay_trajectory(self, package_name, trajectory):
         """
@@ -244,15 +245,15 @@ class UIAutomatorController:
                     
                 if sim >= SIM_THRESHOLD: # 相似度阈值
                     if attempt > 0:
-                        logging.info(f"      -> 步进 {step_idx+1}/{len(trajectory)} 加载成功 (耗时 ~{attempt * wait_time}s)")
+                        logging.info(f"      -> Step {step_idx+1}/{len(trajectory)} loaded successfully (Time: ~{attempt * wait_time}s)")
                     step_success = True
                     break
                     
-                logging.info(f"      -> ⏳ 步进 {step_idx+1}/{len(trajectory)} 校验未通过 (相似度 {sim:.2f})，等待 {wait_time}s 重试 ({attempt+1}/{max_retries})...")
+                logging.info(f"      -> ⏳ Step {step_idx+1}/{len(trajectory)} verification failed (Similarity: {sim:.2f}), retrying in {wait_time}s")
                 time.sleep(wait_time)
                 
             if not step_success:
-                logging.error(f"    -> ❌ 轨迹回放失败于第 {step_idx+1} 步: {action.get('desc', '未知操作')}")
+                logging.error(f"    -> ❌ Trajectory replay failed at step {step_idx+1}: {action.get('desc', 'Unknown action')}")
                 return False
                 
         return True
@@ -294,7 +295,7 @@ class UIAutomatorController:
             start_x = x1 + box_w * 0.88
             end_x = x1 + box_w * 0.12
 
-        logging.info(f"    [Action] 执行滑动: ({int(start_x)}, {int(start_y)}) -> ({int(end_x)}, {int(end_y)})")
+        logging.info(f"    [Action] Executing swipe: ({int(start_x)}, {int(start_y)}) -> ({int(end_x)}, {int(end_y)})")
         self.d.swipe(start_x, start_y, end_x, end_y, duration=duration)
         time.sleep(2) # 等待滑动动画和内容加载完成
 
@@ -347,7 +348,7 @@ class UIAutomatorController:
                         'resourceId': node.attrib.get('resource-id', '')
                     })
         except Exception as e:
-            logging.error(f"解析 XML 获取滑动节点失败: {e}")
+            logging.error(f"Failed to parse XML for scrollable nodes: {e}")
             
         return elements
     
@@ -406,8 +407,8 @@ class UIAutomatorController:
                 # time.sleep(1.0)
                 return True
                 
-            logging.info(f"      -> ⏳ 检测到页面正在异步加载 (Loading)... 阻塞等待中...")
+            logging.info(f"      -> ⏳ Asynchronous loading detected... Blocking and waiting...")
             time.sleep(1.0)
             
-        logging.warning("      -> ⚠️ 等待加载超时，强制继续执行。")
+        logging.warning("      -> ⚠️ Wait for loading timeout, forcing continuation.")
         return False
