@@ -1,5 +1,5 @@
 # ==========================================
-# 1. 纯视觉寻找大滑动区域 (Region)
+# 1. Find Slidable Regions on the Screen (Region)
 # ==========================================
 REGION_TASK_PROMPT = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
 Your task is to identify **ALL** implicit or large "slidable regions" on the screen (e.g., content feeds, image waterfalls, horizontally scrollable card carousels, expandable side drawers, etc.).
@@ -36,7 +36,7 @@ There is a navigation bar at the top and a tab bar at the bottom, so the main ar
 
 
 # ==========================================
-# 2. 为 XML 组件生成意图指令 (Component)
+# 2. Generate Intent Instructions for XML Components (Component)
 # ==========================================
 COMPONENT_TASK_PROMPT = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
 I have located a [Scrollable Component] for you via underlying code.
@@ -65,7 +65,7 @@ Scroll down the settings list to find more system options"""
 
 
 # ==========================================
-# 3. 为 Click (点击) 操作生成意图指令
+# 3. Generate Intent Instructions for Click (Tap) Operations
 # ==========================================
 CLICK_TASK_PROMPT = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
 I have located a [Clickable Component] that a user is about to tap.

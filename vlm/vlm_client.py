@@ -13,7 +13,7 @@ class VLMClient:
         self.server_url = server_url.rstrip("/")
         self.screen_size = screen_size
         
-        # 预加载 One-Shot 示例图 (如果文件不存在，也不报错，退化为 zero-shot)
+        # Preload One-Shot example images (fallback to zero-shot without errors if missing)
         self.ex_region_b64 = None
         self.ex_comp_b64 = None
         
@@ -30,7 +30,7 @@ class VLMClient:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
     def analyze_slidable_regions(self, image_path: str) -> list:
-        """发送截图给远程 VLM，获取可滑动大区域列表"""
+        """Send screenshot to remote VLM to retrieve slidable large regions"""
         payload = {
             "target_image_base64": self._encode_image(image_path),
             "target_user_prompt": REGION_TASK_PROMPT
@@ -47,16 +47,16 @@ class VLMClient:
             resp.raise_for_status()
             response_text = resp.json()["text"]
             
-            # 你可以在这里 print(response_text) 来观察它的 <think> 过程
+            # You can print(response_text) here to observe the <think> process
             return self._parse_json_response(response_text)
         except Exception as e:
             print(f"  [VLM Client] Region inference request failed: {e}")
             return[]
 
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
-        """为 XML 中提取的可滑动组件生成意图"""
+        """Generate intent for scrollable components extracted from XML"""
         w, h = self.screen_size
-        norm_bbox = [
+        norm_bbox =[
             int(bbox[0]/w*1000), int(bbox[1]/h*1000), 
             int(bbox[2]/w*1000), int(bbox[3]/h*1000)
         ]
@@ -79,7 +79,7 @@ class VLMClient:
             
             response_text = resp.json()["text"].strip()
             
-            # 剥离 <think> 标签，只保留最后生成的纯净指令
+            # Strip the <think> tags, retaining only the final pure instruction
             if "</think>" in response_text:
                 return response_text.split("</think>")[-1].strip()
             return response_text
@@ -107,9 +107,9 @@ class VLMClient:
         
 
     def generate_intent_for_click(self, image_path: str, bbox: list, context_text: str) -> str:
-        """为离线保存的点击操作，远程请求一句自然语言意图"""
+        """Request a natural language intent remotely for offline-saved click operations"""
         w, h = self.screen_size
-        norm_bbox = [
+        norm_bbox =[
             int(bbox[0] / w * 1000), int(bbox[1] / h * 1000),
             int(bbox[2] / w * 1000), int(bbox[3] / h * 1000)
         ]
@@ -122,7 +122,7 @@ class VLMClient:
             "target_user_prompt": target_prompt
         }
         
-        # 复用 component 的 example 图像作为点击的 one-shot 示例图
+        # Reuse the component's example image as the one-shot example for clicks
         if self.ex_comp_b64:
             payload["example_image_base64"] = self.ex_comp_b64
             payload["example_user_prompt"] = CLICK_EXAMPLE_PROMPT

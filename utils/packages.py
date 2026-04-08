@@ -80,7 +80,7 @@ PACKAGES3 = {
     "Whatsapp": "com.whatsapp",
 }
 
-PACKAGE_NEW = {
+PACKAGES2 = {
     "viggle.ai": "com.warpengine.viggle",
     "gemini": "com.google.android.googlequicksearchbox",
     "wiser": "com.wisernow.android",

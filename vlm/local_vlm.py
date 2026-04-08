@@ -13,12 +13,11 @@ from vlm.prompts import (
 
 class LocalVLMClient:
     def __init__(self, model_path=r"", screen_size=(1080, 2400)):
-        """初始化并加载本地的 VL 模型"""
+        """Initialize and load the local VL model"""
         print(f"  [LocalVLM] Loading local model: {model_path} ...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.screen_size = screen_size
 
-        # 加载模型
         self.model = AutoModelForImageTextToText.from_pretrained(
             model_path,
             dtype=torch.float16,
@@ -28,7 +27,7 @@ class LocalVLMClient:
         self.processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
         self.model.eval()
         
-        # 预加载 One-Shot 示例图 (如果文件不存在，退化为 zero-shot)
+        # Preload One-Shot example images (fallback to zero-shot if missing)
         self.ex_region_img = None
         self.ex_comp_img = None
         
@@ -45,10 +44,10 @@ class LocalVLMClient:
     def _generate_text(self, target_image: Image.Image, target_prompt: str, 
                        ex_image: Image.Image = None, ex_user_prompt: str = "", 
                        ex_assistant_reply: str = "", max_tokens: int = 2048) -> str:
-        """核心推理引擎：组装多轮对话并执行本地推理"""
+        """Core Inference Engine: Assemble multi-turn dialogue and execute local inference"""
         messages =[]
         
-        # 1. 构造 One-Shot 历史对话
+        # 1. Construct One-Shot historical dialogue
         if ex_image is not None:
             messages.append({
                 "role": "user",
@@ -62,7 +61,7 @@ class LocalVLMClient:
                 "content": ex_assistant_reply
             })
             
-        # 2. 构造当前目标的提问
+        # 2. Construct the prompt for the current target
         final_target_prompt = target_prompt
         if ex_image is not None:
             final_target_prompt = f"Now please analyze the current screenshot based on the standards above.\n\n{target_prompt}"
@@ -75,12 +74,12 @@ class LocalVLMClient:
             ]
         })
         
-        # 3. 模板渲染与张量化
+        # 3. Template rendering and tensor conversion
         text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         images = [img["image"] for msg in messages for img in msg["content"] if img["type"] == "image"]
         inputs = self.processor(text=[text], images=images, return_tensors="pt", padding=True).to(self.device)
         
-        # 4. 执行推理
+        # 4. Execute inference
         with torch.no_grad():
             output_ids = self.model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False)
             
@@ -90,7 +89,7 @@ class LocalVLMClient:
         return result_text
 
     def analyze_slidable_regions(self, image_path: str) -> list:
-        """视觉分析：专门找出大面积可滑动区域"""
+        """Visual analysis: specifically identify large slidable regions"""
         try:
             print(f"  [LocalVLM] Analyzing visual regions (One-Shot): {Path(image_path).name} ...")
             target_image = Image.open(image_path).convert("RGB")
@@ -109,7 +108,7 @@ class LocalVLMClient:
             return[]
 
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
-        """为 XML 中提取的可滑动组件生成意图"""
+        """Generate intent for scrollable components extracted from XML"""
         try:
             w, h = self.screen_size
             norm_bbox = [
@@ -138,7 +137,7 @@ class LocalVLMClient:
             return f"Swipe {direction} on this component"
 
     def generate_intent_for_click(self, image_path: str, bbox: list, context_text: str) -> str:
-        """为点击操作生成意图"""
+        """Generate intent for click operations"""
         try:
             w, h = self.screen_size
             norm_bbox = [
@@ -149,7 +148,7 @@ class LocalVLMClient:
             target_prompt = CLICK_TASK_PROMPT.format(norm_bbox, context_text)
             target_image = Image.open(image_path).convert("RGB")
             
-            # 点击意图同样复用 Component 的示例图（因为它也能表现出理解 Bbox 的能力）
+            # Reuse the component's example image for click intent (as it also demonstrates Bbox comprehension)
             response_text = self._generate_text(
                 target_image=target_image,
                 target_prompt=target_prompt,

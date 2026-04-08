@@ -32,7 +32,7 @@ app = FastAPI(title="Remote VLM Inference Server")
 class InferRequest(BaseModel):
     target_image_base64: str
     target_user_prompt: str
-    # One-Shot 示例参数 (可选)
+    # One-Shot example parameters (optional)
     example_image_base64: str = None
     example_user_prompt: str = ""
     example_assistant_reply: str = ""
@@ -41,18 +41,18 @@ class InferRequest(BaseModel):
 def infer(req: InferRequest):
     print("Received inference request.")
     try:
-        # 1. 解析目标图片
+        # 1. Parse the target image
         tg_bytes = base64.b64decode(req.target_image_base64)
         tg_image = Image.open(io.BytesIO(tg_bytes)).convert("RGB")
         
         messages =[]
         
-        # 2. 如果提供了 One-Shot 示例，先构造两轮对话
+        # 2. If a One-Shot example is provided, construct a two-turn dialogue first
         if req.example_image_base64:
             ex_bytes = base64.b64decode(req.example_image_base64)
             ex_image = Image.open(io.BytesIO(ex_bytes)).convert("RGB")
             
-            # Turn 1: 示例问题
+            # Turn 1: Example prompt
             messages.append({
                 "role": "user",
                 "content":[
@@ -60,13 +60,13 @@ def infer(req: InferRequest):
                     {"type": "text", "text": req.example_user_prompt}
                 ]
             })
-            # Turn 2: 示例回答
+            # Turn 2: Example response
             messages.append({
                 "role": "assistant",
                 "content": req.example_assistant_reply
             })
             
-        # 3. 构造实际的目标问题
+        # 3. Construct the actual target prompt
         target_text = req.target_user_prompt
         if req.example_image_base64:
             target_text = f"Now please analyze the current screenshot based on the standards above.\n\n{req.target_user_prompt}"
@@ -79,10 +79,10 @@ def infer(req: InferRequest):
             ]
         })
 
-        # 4. 模型推理
+        # 4. Model inference
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         
-        # 提取传入的所有图片
+        # Extract all provided images
         images = [img["image"] for msg in messages for img in msg["content"] if img["type"] == "image"]
 
         inputs = processor(text=[text], images=images, return_tensors="pt", padding=True).to(model.device)
