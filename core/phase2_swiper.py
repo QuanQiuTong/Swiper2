@@ -8,17 +8,17 @@ from core.device_controller import UIAutomatorController
 from utils.image_utils import calculate_image_diff
 
 class Phase2Swiper:
-    def __init__(self, package_name: str, use_local_vlm=False):
+    def __init__(self, package_name: str, remote_vlm=True, url="http://localhost:8000"):
         self.package = package_name
         self.controller = UIAutomatorController()
         self.screen_size = self.controller.window_size
 
-        if use_local_vlm:
-            from vlm.local_vlm import LocalVLMClient
-            self.vlm = LocalVLMClient(model_path="Qwen/Qwen3-VL-4B-Instruct", screen_size=self.screen_size)
-        else:
+        if remote_vlm:
             from vlm.vlm_client import VLMClient
-            self.vlm = VLMClient(server_url="http://127.0.0.1:8000", screen_size=self.screen_size)
+            self.vlm = VLMClient(server_url=url, screen_size=self.screen_size)
+        else:
+            from vlm.local_vlm import LocalVLMClient
+            self.vlm = LocalVLMClient(model_path=url, screen_size=self.screen_size)
 
         # Phase 2 成功执行并验证的滑动数据集输出目录 (相当于已经按 App 归档好了)
         self.output_dir = Path("outputs") / f"{self.package}_dataset"
@@ -354,5 +354,5 @@ class Phase2Swiper:
 
 if __name__ == "__main__":
     target_app = "com.twitter.android"
-    swiper = Phase2Swiper(package_name=target_app, use_local_vlm=False)
+    swiper = Phase2Swiper(package_name=target_app, remote_vlm=False)
     swiper.run_synthesis()

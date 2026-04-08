@@ -13,13 +13,13 @@ LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "inference_log.jsonl"
 
-MODEL_PATH = "" # 请确认你的模型路径
-MAX_NEW_TOKENS = 2048 # 加大 Token 数量以容纳 <think>
+MODEL_PATH = "" # Fill in your model path here, e.g., "/home/user/models/Qwen3-VL-8B-Instruct"
+MAX_NEW_TOKENS = 2048 
 
 print("Loading model...")
 model = AutoModelForImageTextToText.from_pretrained(
     MODEL_PATH,
-    dtype=torch.float16,  # 修复了警告
+    dtype=torch.float16,
     device_map="auto",
     trust_remote_code=True
 )
@@ -99,9 +99,7 @@ def infer(req: InferRequest):
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==========================================
-# 补上启动服务器的代码
-# ==========================================
+# You can also start the server with a command like: uvicorn remote_server:app --host 0.0.0.0 --port 8000
 if __name__ == "__main__":
     import uvicorn
     print("Starting Uvicorn server...")

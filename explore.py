@@ -22,7 +22,7 @@ for name, pkg in PACKAGE_INSTALLED.items():
     explorer.run_exploration()
 
     logging.info(f"\n=== [Phase 2] Synthesizing Swipe Data: {name} ({pkg}) ===")
-    swiper = Phase2Swiper(package_name=pkg, use_local_vlm=False)
+    swiper = Phase2Swiper(package_name=pkg, remote_vlm=True, url="http://localhost:8000")
     swiper.run_synthesis()
     
     logging.info(f"\n=== [Phase 3] Aggregating Dataset Incrementally: {name} ({pkg}) ===")
