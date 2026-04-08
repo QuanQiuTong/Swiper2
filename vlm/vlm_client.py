@@ -9,8 +9,9 @@ from vlm.prompts import (
 )
 
 class VLMClient:
-    def __init__(self, server_url="http://localhost:8000"):
+    def __init__(self, server_url="http://localhost:8000", screen_size=(1080, 2400)):
         self.server_url = server_url.rstrip("/")
+        self.screen_size = screen_size
         
         # 预加载 One-Shot 示例图 (如果文件不存在，也不报错，退化为 zero-shot)
         self.ex_region_b64 = None
@@ -54,7 +55,7 @@ class VLMClient:
 
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
         """为 XML 中提取的可滑动组件生成意图"""
-        w, h = 1080, 2400 # 按照你的设备调整
+        w, h = self.screen_size
         norm_bbox = [
             int(bbox[0]/w*1000), int(bbox[1]/h*1000), 
             int(bbox[2]/w*1000), int(bbox[3]/h*1000)
@@ -107,7 +108,7 @@ class VLMClient:
 
     def generate_intent_for_click(self, image_path: str, bbox: list, context_text: str) -> str:
         """为离线保存的点击操作，远程请求一句自然语言意图"""
-        w, h = 1080, 2400 # 按照你的设备分辨率调整
+        w, h = self.screen_size
         norm_bbox = [
             int(bbox[0] / w * 1000), int(bbox[1] / h * 1000),
             int(bbox[2] / w * 1000), int(bbox[3] / h * 1000)

@@ -12,11 +12,12 @@ from vlm.prompts import (
 )
 
 class LocalVLMClient:
-    def __init__(self, model_path=r""):
+    def __init__(self, model_path=r"", screen_size=(1080, 2400)):
         """初始化并加载本地的 VL 模型"""
         print(f"  [LocalVLM] Loading local model: {model_path} ...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+        self.screen_size = screen_size
+
         # 加载模型
         self.model = AutoModelForImageTextToText.from_pretrained(
             model_path,
@@ -110,7 +111,7 @@ class LocalVLMClient:
     def generate_intent_for_xml_component(self, image_path: str, bbox: list, direction: str, context_text: str) -> str:
         """为 XML 中提取的可滑动组件生成意图"""
         try:
-            w, h = 1080, 2400
+            w, h = self.screen_size
             norm_bbox = [
                 int(bbox[0]/w*1000), int(bbox[1]/h*1000),
                 int(bbox[2]/w*1000), int(bbox[3]/h*1000)
@@ -139,7 +140,7 @@ class LocalVLMClient:
     def generate_intent_for_click(self, image_path: str, bbox: list, context_text: str) -> str:
         """为点击操作生成意图"""
         try:
-            w, h = 1080, 2400
+            w, h = self.screen_size
             norm_bbox = [
                 int(bbox[0]/w*1000), int(bbox[1]/h*1000),
                 int(bbox[2]/w*1000), int(bbox[3]/h*1000)
