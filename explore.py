@@ -14,7 +14,7 @@ logging.basicConfig(
     ]
 )
 
-from utils.packages import PACKAGE_ANDROID_WORLD, PACKAGE_NEW, PACKAGE_HOT_GLOBAL, PACKAGE_HOT_CN, PACKAGE_INSTALLED
+from utils.packages import PACKAGE_ANDROID_WORLD, PACKAGE_NEW, PACKAGE_HOT_GLOBAL, PACKAGE_INSTALLED
 
 for name, pkg in PACKAGE_INSTALLED.items():
     logging.info(f"\n=== [Phase 1] Exploring App: {name} ({pkg}) ===")

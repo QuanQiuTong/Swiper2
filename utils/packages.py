@@ -1,49 +1,45 @@
 PACKAGE_INSTALLED = {
-    "DeepSeek": "com.deepseek.chat",      # √
-    "Wiser": "com.wisernow.android",      # 没多少页面，还充满了广告，不推荐。
+    "DeepSeek": "com.deepseek.chat",
+    "Wiser": "com.wisernow.android",
     "Perplexity": "ai.perplexity.app.android",
+    "Grok": "ai.x.grok",
+    "Reddit": "com.reddit.frontpage",
+    "X/Twitter": "com.twitter.android",
+    "Spotify": "com.spotify.music",
     
-    "Grok": "ai.x.grok",                  # 假设的 Grok App 包名
-
-    "Reddit": "com.reddit.frontpage",     # √
-    "X/Twitter": "com.twitter.android",   # √
-    "Spotify": "com.spotify.music",       # √
-
     "ChatGPT": "com.openai.chatgpt",
-    "Perplexity": "ai.perplexity.app.android", # 新
+    "Perplexity": "ai.perplexity.app.android",
     "Whatsapp": "com.whatsapp.w4b",
-    "Manus": "tech.butterfly.app",  # Manus AI 办公助手，2025年新兴的效率工具，界面复杂且充满动态内容，非常适合测试 SoM 能力。
-    "Gemini": "com.google.android.googlequicksearchbox", #
+    "Manus": "tech.butterfly.app",
+    "Gemini": "com.google.android.googlequicksearchbox",
     "Youtube": "com.google.android.youtube",
     "Copilot": "com.microsoft.copilot",
-
-    "Finch": "com.finch.finch", # 新
-    "Arc Search": "company.thebrowser.arc",        # 极具创新的浏览器UI，非传统导航
-    "Bluesky": "xyz.blueskyweb.app",               # 2025年初用户暴增，全新改版
-    "Wiser": "com.wisernow.android",               # 卡片化视听结合 UI]
+    
+    "Finch": "com.finch.finch",
+    "Arc Search": "company.thebrowser.arc",
+    "Bluesky": "xyz.blueskyweb.app",
+    "Wiser": "com.wisernow.android",
     "Lemon8": "com.bd.nproject",
     "Comet": "ai.perplexity.comet",
-    "Character.AI": "ai.character.app", # 2025年新晋爆火的 AI 聊天应用，界面复杂且充满动态内容，非常适合测试 SoM 能力。
+    "Character.AI": "ai.character.app",
 }
-
 
 
 PACKAGE_ANDROID_WORLD = {
-    "Settings": "com.android.settings",               # 系统设置
-    "Calculator": "com.google.android.calculator",    # 计算器 (Pixel默认)
-    "Clock": "com.google.android.deskclock",          # 时钟
-    "Contacts": "com.google.android.contacts",        # 联系人
-    "Files": "com.google.android.documentsui",        # 文件管理器
-    "Chrome": "com.android.chrome",                   # 浏览器
-    "Calendar": "com.google.android.calendar",        # 日历
-    "Photos/Gallery": "com.google.android.apps.photos", # 相册
-    "Camera": "com.android.camera2",                  # 相机 (AOSP原生) 或 com.google.android.GoogleCamera
-    "Messages": "com.google.android.apps.messaging",  # 短信
-    "Phone": "com.google.android.dialer",             # 拨号/电话
-    "Maps": "com.google.android.apps.maps",           # 地图 (可选跳过登录)
-    "YouTube": "com.google.android.youtube",          # YouTube (可选跳过登录)
+    "Settings": "com.android.settings",               
+    "Calculator": "com.google.android.calculator",    
+    "Clock": "com.google.android.deskclock",          
+    "Contacts": "com.google.android.contacts",        
+    "Files": "com.google.android.documentsui",        
+    "Chrome": "com.android.chrome",                   
+    "Calendar": "com.google.android.calendar",        
+    "Photos": "com.google.android.apps.photos", 
+    "Camera": "com.android.camera2",                  
+    "Messages": "com.google.android.apps.messaging",  
+    "Phone": "com.google.android.dialer",             
+    "Maps": "com.google.android.apps.maps",           
+    "YouTube": "com.google.android.youtube",          
 }
-
 PACKAGE_NEW = {
     # --- 2025 Trending AI & Productivity Tools (Novel UI Paradigms) ---
     "DeepSeek": "com.deepseek.chat",               # Top app in 2025, novel Chain-of-Thought UI
@@ -74,26 +70,6 @@ PACKAGE_HOT_GLOBAL = {
     "Spotify": "com.spotify.music",                # Floating bottom player, complex dynamic lists
     "Amazon": "com.amazon.mShop.android.shopping", # Extreme density of e-commerce cards and filtering logic
     "Discord": "com.discord",                      # Highly complex multi-level sidebar navigation
-}
-
-PACKAGE_HOT_CN = {
-    # --- National-level Mega Apps ---
-    "WeChat": "com.tencent.mm",                    # Complex lists and bottom navigation
-    "Bilibili": "tv.danmaku.bili",                 # Extremely dense video cover grids, bullet screen UI
-    "Meituan": "com.sankuai.meituan",              # Mega-app with overwhelming functional entries
-    "Taobao": "com.taobao.taobao",                 # Ultimate test for waterfall feeds and complex cards
-    "NetEase Music": "com.netease.cloudmusic",     # Vinyl record UI, complex playback pages
-}
-
-PACKAGES2 = {
-    "SHEIN":"com.zzkko",
-    "deepseek":"com.deepseek.chat",
-    "网易云音乐": "com.netease.cloudmusic",
-    "京东": "com.jingdong.app.mall",
-    "QQ": "com.tencent.mobileqq",
-    "哔哩哔哩": "tv.danmaku.bili",
-    "知乎": "com.zhihu.android",
-    "美团": "com.sankuai.meituan"
 }
 
 PACKAGES3 = {

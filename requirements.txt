@@ -3,6 +3,6 @@ opencv-python
 requests
 
 # if using local VLM
-# torch
-# transformers
-# pillow
+torch
+transformers
+pillow
