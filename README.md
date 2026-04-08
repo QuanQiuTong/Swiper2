@@ -14,11 +14,11 @@ pip install -r requirements.txt
    Connect your Android device (physical smartphone or emulator) and ensure it is authorized via ADB (`adb devices`).
 
 2. **Configuration:**
-   Specify the target Application package names in `utils/packages.py`.
+   Specify the target Application package names in `PACKAGE_INSTALLED` in `utils/packages.py`.
 
 3. **Run Exploration & Synthesis:**
 
-   First set the `model_path` in `vlm/vlm_server.py` and run a server on port 8000 (using remote VLM by default):
+   First set the `MODEL_PATH` in `vlm/vlm_server.py` and run a server on port 8000 (using remote VLM by default):
 
    ```bash
    python vlm/vlm_server.py
