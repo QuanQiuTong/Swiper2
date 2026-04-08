@@ -20,7 +20,7 @@ class Phase2Swiper:
             from vlm.vlm_client import VLMClient
             self.vlm = VLMClient(server_url="http://127.0.0.1:8000", screen_size=self.screen_size)
 
-        # Phase 2 成功执行并验证的滑动数据集输出目录
+        # Phase 2 成功执行并验证的滑动数据集输出目录 (相当于已经按 App 归档好了)
         self.output_dir = Path("outputs") / f"{self.package}_dataset"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -103,10 +103,10 @@ class Phase2Swiper:
         desc = action.get('desc', 'Unknown Component')
         physical_bbox = action.get('bbox')
         
-        before_img = parent_page['image_path']
-        after_img = page['image_path']
+        src_before_img = Path(parent_page['image_path'])
+        src_after_img = Path(page['image_path'])
         
-        if not os.path.exists(before_img):
+        if not src_before_img.exists() or not src_after_img.exists():
             return
 
         logging.info(f"  -> Requesting VLM intent for Click action from {parent_page_id} to {page_id}...")
@@ -115,8 +115,23 @@ class Phase2Swiper:
         if not physical_bbox:
             physical_bbox =[max(0, cx-20), max(0, cy-20), cx+20, cy+20]
 
-        instruction = self.vlm.generate_intent_for_click(before_img, physical_bbox, desc)
+        instruction = self.vlm.generate_intent_for_click(str(src_before_img), physical_bbox, desc)
         logging.info(f"     [Click] Generated intent: {instruction}")
+        
+        # 将原始文件拷贝到 dataset 目录，实现数据自包含
+        dest_before_name = f"{page_id}_click_before.png"
+        dest_after_name = f"{page_id}_click_after.png"
+        
+        shutil.copy(src_before_img, self.output_dir / dest_before_name)
+        shutil.copy(src_after_img, self.output_dir / dest_after_name)
+
+        # 拷贝对应的 XML
+        src_before_xml = src_before_img.with_suffix('.xml')
+        if src_before_xml.exists():
+            shutil.copy(src_before_xml, self.output_dir / f"{page_id}_click_before.xml")
+        src_after_xml = src_after_img.with_suffix('.xml')
+        if src_after_xml.exists():
+            shutil.copy(src_after_xml, self.output_dir / f"{page_id}_click_after.xml")
         
         w, h = self.screen_size
         norm_bbox = [
@@ -126,9 +141,9 @@ class Phase2Swiper:
         norm_x, norm_y = int(cx/w*1000), int(cy/h*1000)
         
         data_entry = {
-            "img_filename": before_img,
+            "img_filename": dest_before_name,  # 仅保留干净的文件名
             "target_page": page_id,
-            "after_image": after_img,
+            "after_image": dest_after_name,    # 仅保留干净的文件名
             "action_data": {
                 "action": "click",
                 "bbox": norm_bbox,
@@ -152,7 +167,6 @@ class Phase2Swiper:
         all_swipe_candidates =[]
 
         # --- 来源 1：提取 Phase 1 中 XML 找到的组件 ---
-        # logging.info(f"  -> 正在当场提取实时 XML 组件...")
         logging.info(f"  -> Extracting live XML components from current page...")
         xml_components = self.controller.get_scrollable_elements_xml()
 
@@ -168,7 +182,7 @@ class Phase2Swiper:
                 norm_bbox = [
                     int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
                     int(comp['bounds'][2]/w*1000), int(comp['bounds'][3]/h*1000)
-                ] # norm_bbox = self.controller.bbox_relative(comp['bounds'])
+                ]
 
                 all_swipe_candidates.append({
                     "category": "component",
@@ -177,7 +191,7 @@ class Phase2Swiper:
                     "bbox": norm_bbox,
                     "command": intent_cmd
                 })
-                logging.info(f"     [Component] Generated intent: {intent_cmd}")
+                logging.info(f"[Component] Generated intent: {intent_cmd}")
 
         # --- 来源 2：让 VLM 补充视觉上的大滑动区域 ---
         logging.info(f"  -> Calling VLM to analyze purely visual slidable regions (Regions)...")
@@ -289,7 +303,7 @@ class Phase2Swiper:
             def convert(coords):
                 x, y = coords
                 W, H = self.screen_size
-                return [round(x*1000/W, 1), round(y*1000/H, 1)]
+                return[round(x*1000/W, 1), round(y*1000/H, 1)]
 
             action = {
                 "action": "swipe",
@@ -308,9 +322,11 @@ class Phase2Swiper:
             else:           # 并非纯水平或垂直滑动，暂不标记
                 pass
 
-            self.successful_swipes.append(
-                {"img_filename": str(final_before_img), "action_data": action}
-            )
+            self.successful_swipes.append({
+                "img_filename": f"{dataset_id}_before.png",  # 仅保留干净的文件名
+                "after_image": f"{dataset_id}_after.png",    # 显式加上 after_image
+                "action_data": action
+            })
             self.save_dataset()
         else:
             logging.info(f"    -> ❌ Verification failed! No UI changes after swipe. Discarding data.")
