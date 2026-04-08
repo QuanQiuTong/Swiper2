@@ -5,19 +5,20 @@ import os
 import logging
 from pathlib import Path
 from core.device_controller import UIAutomatorController
-from utils.image_utils import convert, calculate_image_diff
+from utils.image_utils import calculate_image_diff
 
 class Phase2Swiper:
-    def __init__(self, package_name: str, use_local_vlm=True):
+    def __init__(self, package_name: str, use_local_vlm=False):
         self.package = package_name
         self.controller = UIAutomatorController()
+        self.screen_size = self.controller.window_size
 
         if use_local_vlm:
             from vlm.local_vlm import LocalVLMClient
-            self.vlm = LocalVLMClient(model_path="Qwen/Qwen3-VL-4B-Instruct")
+            self.vlm = LocalVLMClient(model_path="Qwen/Qwen3-VL-4B-Instruct", screen_size=self.screen_size)
         else:
             from vlm.vlm_client import VLMClient
-            self.vlm = VLMClient(server_url="http://127.0.0.1:8000")
+            self.vlm = VLMClient(server_url="http://127.0.0.1:8000", screen_size=self.screen_size)
 
         # Phase 2 成功执行并验证的滑动数据集输出目录
         self.output_dir = Path("outputs") / f"{self.package}_dataset"
@@ -28,11 +29,11 @@ class Phase2Swiper:
 
         # === 【断点续传核心变量】 ===
         self.dataset_file = self.output_dir / "swipe_dataset.json"
-        self.click_dataset_file = self.output_dir / "click_dataset.json" # 点击数据集存储
+        self.click_dataset_file = self.output_dir / "click_dataset.json"
         self.progress_file = self.output_dir / "phase2_progress.json"
 
         self.successful_swipes =[]
-        self.successful_clicks =[] # 点击数据集列表
+        self.successful_clicks =[]
         self.processed_pages = set()
 
         self._load_resume_data()
@@ -117,7 +118,7 @@ class Phase2Swiper:
         instruction = self.vlm.generate_intent_for_click(before_img, physical_bbox, desc)
         logging.info(f"     [Click] Generated intent: {instruction}")
         
-        w, h = self.controller.window_size
+        w, h = self.screen_size
         norm_bbox = [
             int(physical_bbox[0]/w*1000), int(physical_bbox[1]/h*1000),
             int(physical_bbox[2]/w*1000), int(physical_bbox[3]/h*1000)
@@ -131,8 +132,8 @@ class Phase2Swiper:
             "action_data": {
                 "action": "click",
                 "bbox": norm_bbox,
-                "start": convert([norm_x, norm_y]),
-                "end": convert([norm_x, norm_y]),
+                "start": [norm_x, norm_y], # 已经 norm 过，不能再除以屏幕尺寸了
+                "end": [norm_x, norm_y],
                 "instruction": instruction,
                 "description": desc
             }
@@ -163,7 +164,7 @@ class Phase2Swiper:
                 )
 
                 # 坐标转换：把 XML 的物理坐标转成归一化坐标送进待测队列
-                w, h = self.controller.window_size
+                w, h = self.screen_size
                 norm_bbox = [
                     int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
                     int(comp['bounds'][2]/w*1000), int(comp['bounds'][3]/h*1000)
@@ -283,7 +284,12 @@ class Phase2Swiper:
             shutil.move(after_xml, final_after_xml)
 
             sx, sy = swipe_params['start']
-            ex, ey = swipe_params['end'] 
+            ex, ey = swipe_params['end']
+
+            def convert(coords):
+                x, y = coords
+                W, H = self.screen_size
+                return [round(x*1000/W, 1), round(y*1000/H, 1)]
 
             action = {
                 "action": "swipe",
@@ -321,14 +327,13 @@ class Phase2Swiper:
         with open(self.dataset_file, 'w', encoding='utf-8') as f:
             json.dump(self.successful_swipes, f, ensure_ascii=False, indent=2)
             
-        # 【修改点】同时保存去重后的 Click 数据集
+        # 同时保存去重后的 Click 数据集
         unique_clicks = {s['target_page']: s for s in self.successful_clicks}
         self.successful_clicks = list(unique_clicks.values())
         
         with open(self.click_dataset_file, 'w', encoding='utf-8') as f:
             json.dump(self.successful_clicks, f, ensure_ascii=False, indent=2)
             
-        # 这里只打印简要信息，避免频繁刷屏
         logging.info(f"Data synced and saved. Swipe: {len(self.successful_swipes)} records, Click: {len(self.successful_clicks)} records.")
 
 if __name__ == "__main__":

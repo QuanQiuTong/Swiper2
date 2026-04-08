@@ -116,13 +116,3 @@ def mask(img, box, reason):
             cv2.putText(img, text_str, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
     return img
-
-
-def convert(coords, size=(1080,2400)):
-    """将坐标转换为适配 Android 15 / API 36 的格式"""
-    if len(coords) != 2:
-        raise ValueError("坐标必须是 (x, y) 格式")
-    
-    x, y = coords
-    W, H = size
-    return [round(x*1000/W, 1), round(y*1000/H, 1)]
