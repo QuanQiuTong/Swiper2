@@ -21,13 +21,12 @@ class PageMemory:
         self.pages =[]
         self.similarity_threshold = similarity_threshold
         
-        # 创建属于该 App 的专属目录
         self.output_dir = Path("outputs") / package_name
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.json_file = self.output_dir / "memory_graph.json"
 
     def load_from_disk(self) -> bool:
-        """从 JSON 恢复之前的探索进度"""
+        """Recover previous exploration progress from JSON"""
         if not self.json_file.exists():
             return False
         try:
@@ -43,7 +42,6 @@ class PageMemory:
                     parent_page_id=item.get('parent_page_id')
                 )
                 node.scrollable_components = item.get('scrollable_components',[])
-                # 恢复已点击坐标的记忆集合
                 node.visited_elements = set(tuple(x) for x in item.get('visited_elements',[]))
                 node.is_fully_explored = item.get('is_fully_explored', False)
                 self.pages.append(node)
@@ -64,26 +62,23 @@ class PageMemory:
         return True, None
 
     def add_page(self, temp_image_path: str, trajectory: list, parent_page_id: str = None) -> str:
-        """将临时截图正式收录为新的 Page"""
+        """Formally record the temporary screenshot as a new Page"""
+
         page_index = len(self.pages)
         page_id = f"page_{page_index}"
         
-        # 定义最终的存储路径
         final_img_path = self.output_dir / f"{page_id}.png"
         final_skel_path = self.output_dir / f"{page_id}_skeleton.png"
         final_xml_path = self.output_dir / f"{page_id}.xml"
         
-        # 移动临时图片到正式目录
         shutil.move(temp_image_path, final_img_path)
         
-        # 将临时的 XML 也一并移动过去并重命名
         temp_xml_path = temp_image_path.replace('.png', '.xml')
         if os.path.exists(temp_xml_path):
             shutil.move(temp_xml_path, final_xml_path)
             
         ImageUtils.save_skeleton(str(final_img_path), str(final_skel_path))
         
-        # 记录到内存
         new_page = PageNode(
             page_id=page_id,
             image_path=str(final_img_path),

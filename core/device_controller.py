@@ -1,4 +1,3 @@
-# core/device_controller.py
 import uiautomator2 as u2
 import time
 import os
@@ -17,18 +16,18 @@ class UIAutomatorController:
 
     def _extract_all_text_from_node(self, node):
         """
-        递归提取当前节点及其所有子孙节点中的文本和描述。
-        返回一个包含所有有效文字的集合（去重）。
+        Recursively extract text and content-desc from the current node and all its descendants.
+        Returns a set containing all valid texts (deduplicated).
         """
         texts = set()
         
-        # 提取当前节点的 text 和 content-desc
+        # Extract text and content-desc from the current node
         text = node.attrib.get('text', '').strip()
         desc = node.attrib.get('content-desc', '').strip()
         if text: texts.add(text)
         if desc: texts.add(desc)
         
-        # 递归遍历所有子孙节点
+        # Recursively traverse all descendant nodes
         for child in node:
             texts.update(self._extract_all_text_from_node(child))
             
@@ -36,41 +35,41 @@ class UIAutomatorController:
 
     def get_clickable_elements_xml(self):
         """
-        获取所有可点击组件，并智能聚合其内部的文本。
+        Get all clickable components and smartly aggregate their internal texts.
         """
         elements =[]
         try:
-            # 使用原生 XML 导出，速度极快且兼容 Android 15 / API 36
+            # Use native XML dump for extreme speed and Android 15 / API 36 compatibility
             xml_dump = self.d.dump_hierarchy()
             root = ET.fromstring(xml_dump)
             
-            # 遍历所有节点
+            # Traverse all nodes
             for node in root.iter('node'):
-                # 寻找 clickable 为 true 的节点
+                # Look for nodes where clickable is true
                 if node.attrib.get('clickable') == 'true':
 
                     bounds_str = node.attrib.get('bounds')
                     if not bounds_str: continue
                         
-                    # 解析 "[x1,y1][x2,y2]"
+                    # Parse "[x1,y1][x2,y2]"
                     bounds_str = bounds_str.replace('][', ',').replace('[', '').replace(']', '')
                     x1, y1, x2, y2 = map(int, bounds_str.split(','))
                     
-                    # 过滤无效坐标或超出屏幕的坐标
+                    # Filter invalid coordinates or those out of screen bounds
                     if x2 <= x1 or y2 <= y1: continue
                     if x1 < 0 or y1 < 0 or x2 > self.window_size[0] or y2 > self.window_size[1]: continue
 
                     cx = (x1 + x2) // 2
                     cy = (y1 + y2) // 2
                     
-                    # 递归把容器肚子里的字全部榨取出来
+                    # Recursively extract all text inside the container
                     aggregated_texts = self._extract_all_text_from_node(node)
                     
-                    # 拼接成一个具有描述性的字符串
+                    # Concatenate into a descriptive string
                     final_text = " | ".join(aggregated_texts) if aggregated_texts else ""
                     
                     elements.append({
-                        'bounds':[x1, y1, x2, y2],
+                        'bounds': [x1, y1, x2, y2],
                         'center': (cx, cy),
                         'text': final_text,
                         'resourceId': node.attrib.get('resource-id', '')
@@ -82,20 +81,17 @@ class UIAutomatorController:
 
     def take_anonymized_screenshot(self, output_path: str):
         """
-        截图并打码：使用原生 dump_hierarchy，完美绕过 XPath 限制。
-        同时保存当前页面的 XML 文件，方便调试与后续数据集使用。
-        增加视觉增强：黑色背景 + 白色边框 + 匿名化原因文本。
+        Screenshot and anonymization: Uses native dump_hierarchy, perfectly bypassing XPath limitations.
+        Simultaneously saves the XML file of the current page for debugging and dataset usage.
+        Adds visual enhancement: Black background + White border + Anonymization reason text.
         """
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         self.d.screenshot(output_path)
         
-        # 可以根据你查看到的 XML，随时在这里补充敏感词
-        sensitive_keywords =[
-            'avatar', 'username', # 'email', 
-            'account', 'password', # 'sign in', 'log in', 
-            # 'profile', # Twitter 全是 profile，先去掉这个关键词，避免过度打码了。
-            # 'phone', 会把左上角状态栏的时间和通知图标涂黑，其实不需要？
-            # 'show navigation drawer' # <-- 针对 Twitter 头像，但会把上面全部涂黑。
+        # Add sensitive keywords here based on observed XMLs
+        sensitive_keywords = [
+            'avatar', 'username', 
+            'account', 'password', 
         ]
         
         img = cv2.imread(output_path)
@@ -104,7 +100,7 @@ class UIAutomatorController:
         try:
             xml_dump = self.d.dump_hierarchy()
             
-            # 保存同名的 XML 文件
+            # Save the corresponding XML file
             xml_path = output_path.replace('.png', '.xml')
             with open(xml_path, 'w', encoding='utf-8') as f:
                 f.write(xml_dump)
@@ -116,7 +112,7 @@ class UIAutomatorController:
                 desc = node.attrib.get('content-desc', '').lower()
                 res_id = node.attrib.get('resource-id', '').lower()
                 
-                # 明确找出命中的是哪一个敏感词，将其作为“打码原因”
+                # Identify the specific hit keyword to use as the "anonymization reason"
                 matched_kw = None
                 for kw in sensitive_keywords:
                     if kw in text or kw in desc or kw in res_id:
@@ -129,14 +125,14 @@ class UIAutomatorController:
                         bounds_str = bounds_str.replace('][', ',').replace('[', '').replace(']', '')
                         coords = list(map(int, bounds_str.split(',')))
                         if len(coords) == 4:
-                            # 把坐标和命中原因传给打码函数
+                            # Pass coordinates and reason to the mask function
                             mask(img, coords, matched_kw.upper())
                             count += 1
                             
         except Exception as e:
             logging.error(f"[Anonymize] XML parsing exception: {e}")
 
-        # 只有在真正发生了打码时，才重新覆写图片，节省磁盘 I/O
+        # Overwrite the image only if anonymization actually occurred to save Disk I/O
         if count > 0:
             cv2.imwrite(output_path, img)
             logging.info(f"  [Anonymize] Successfully masked {count} sensitive regions.")
@@ -144,7 +140,6 @@ class UIAutomatorController:
         return output_path
 
     def take_screenshot(self, output_path: str):
-        # return self.take_anonymized_screenshot(output_path)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         self.d.screenshot(output_path)
 
@@ -157,7 +152,7 @@ class UIAutomatorController:
             logging.error(f"Failed to dump XML during standard screenshot: {e}")
 
     def get_current_package(self):
-        """获取当前正在前台运行的 App 包名"""
+        """Get the package name of the currently running foreground App"""
         try:
             return self.d.app_current()['package']
         except Exception:
@@ -165,8 +160,8 @@ class UIAutomatorController:
 
     def click(self, x, y, delay=1.5):
         """
-        执行点击并等待。
-        增加 delay 参数，以便区分“探索”和“回放”时的不同等待需求。
+        Execute click and wait.
+        Added delay parameter to distinguish waiting needs between 'exploration' and 'replay'.
         """
         self.d.click(x, y)
         time.sleep(delay)
@@ -182,16 +177,14 @@ class UIAutomatorController:
                 return
             if self.get_current_package() == "com.lbe.security.miui":
                 logging.warning(f"  [Device] Security popup intercepted, attempting to bypass...")
-                # Dynamically calculate the bottom-center coordinate for the "Allow" button
                 w, h = self.window_size
                 self.click(w // 2, int(h * 0.91), delay=1.0)
             elif self.get_current_package() == "com.google.android.gms":
-                logging.warning(f"  [Device] GMS prompt detected, allowing to proceed...")
+                logging.warning(f"[Device] GMS prompt detected, allowing to proceed...")
                 return
-            logging.info(f"  [Device ×{attempt+1}] Waiting for app to launch, currently at: {self.get_current_package()}")
+            logging.info(f"[Device ×{attempt+1}] Waiting for app to launch, currently at: {self.get_current_package()}")
             time.sleep(1)
 
-        # Try starting again to increase chance of success
         self.d.app_start(package_name)
         for attempt in range(3, 6):
             if self.get_current_package() == package_name:
@@ -200,51 +193,48 @@ class UIAutomatorController:
             if self.get_current_package() == "com.lbe.security.miui":
                 logging.warning(f"  [Device] Security popup intercepted, attempting to go back...")
                 self.d.press("back")
-            logging.info(f"  [Device ×{attempt+1}] Waiting for app to launch, currently at: {self.get_current_package()}")
+            logging.info(f"[Device ×{attempt+1}] Waiting for app to launch, currently at: {self.get_current_package()}")
             time.sleep(1)
         raise RuntimeError(f"Failed to launch app {package_name}. Please check device status.")
 
     def replay_trajectory(self, package_name, trajectory):
         """
-        重置 App，并带有步进状态校验的轨迹回放。
-        每执行一步，都会动态校验是否到达了预期的中间页面状态。
+        Reset App and replay trajectory with step-by-step state verification.
+        Validates dynamically whether the expected intermediate page state is reached.
         """
         self.reset_app(package_name)
         
-        # 确保用于步进校验的临时目录存在
         temp_dir = Path("outputs") / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
         
         for step_idx, action in enumerate(trajectory):
-            # 点击当前步
             self.click(action['x'], action['y'], delay=1.0)
             
             expected_path = action.get('expected_image_path')
             if not expected_path or not os.path.exists(expected_path):
-                # 兼容老数据：如果没有预期截图路径，退化为硬等待
+                # Fallback to hard wait if expected image path is missing
                 time.sleep(2.0)
                 continue
                 
-            # --- 动态轮询校验当前步的页面状态 ---
+            # --- Dynamic polling to verify the page state of the current step ---
             max_retries = 3
             wait_time = 2.0
             step_success = False
             
             for attempt in range(max_retries):
                 verify_img = str(temp_dir / f"verify_step_{step_idx}_{int(time.time())}.png")
-                self.take_screenshot(verify_img) # 同样会触发打码，保证比对的一致性
+                self.take_screenshot(verify_img) 
                 
-                # 计算当前屏幕与预期画面的骨架相似度
                 sim = ImageUtils.calculate_skeleton_similarity(verify_img, expected_path)
                 
-                # 清理临时文件
+                # Cleanup temp files
                 if os.path.exists(verify_img):
                     os.remove(verify_img) 
                 verify_xml = verify_img.replace('.png', '.xml')
                 if os.path.exists(verify_xml):
                     os.remove(verify_xml)
                     
-                if sim >= SIM_THRESHOLD: # 相似度阈值
+                if sim >= SIM_THRESHOLD:
                     if attempt > 0:
                         logging.info(f"      -> Step {step_idx+1}/{len(trajectory)} loaded successfully (Time: ~{attempt * wait_time}s)")
                     step_success = True
@@ -260,33 +250,29 @@ class UIAutomatorController:
         return True
 
     def replay_trajectory_unverified(self, package_name, trajectory):
-        """不带校验的快速回放，仅用于一些不需要严格状态验证的场景（如快速回到首页）"""
+        """Fast replay without verification, used for simple navigation (e.g., return to home)"""
         self.reset_app(package_name)
         for action in trajectory:
             self.click(action['x'], action['y'], delay=1.0)
-        # return self.get_current_package() == package_name
         return True
 
     def swipe_by_normalized_bbox(self, bbox: list, direction: str, duration=0.3):
         """
-        根据 VLM 给出的归一化 bbox [0-1000] 和方向，计算真实的物理坐标并执行滑动。
-        为了符合直觉：
-        - vertical (向下浏览内容)：手指从下往上滑 (y从大到小)
-        - horizontal (向右浏览内容)：手指从右往左滑 (x从大到小)
+        Calculate physical coordinates and execute swipe based on VLM's normalized bbox[0-1000].
+        - vertical (browse down): swipe from bottom to top (y decreases)
+        - horizontal (browse right): swipe from right to left (x decreases)
         """
         w, h = self.window_size
-        # 转换为物理像素坐标
         x1, y1 = bbox[0] * w / 1000, bbox[1] * h / 1000
         x2, y2 = bbox[2] * w / 1000, bbox[3] * h / 1000
         
-        # 计算区域的中心
         cx = (x1 + x2) / 2
         cy = (y1 + y2) / 2
         
-        # 计算滑动的起止点 (留出 12% 的边距防止滑出边界)
         box_w = x2 - x1
         box_h = y2 - y1
         
+        # Reserve 12% margin to prevent swiping out of bounds
         if direction.lower() == "vertical":
             start_x = end_x = cx
             start_y = y1 + box_h * 0.88
@@ -298,19 +284,18 @@ class UIAutomatorController:
 
         logging.info(f"    [Action] Executing swipe: ({int(start_x)}, {int(start_y)}) -> ({int(end_x)}, {int(end_y)})")
         self.d.swipe(start_x, start_y, end_x, end_y, duration=duration)
-        time.sleep(2) # 等待滑动动画和内容加载完成
+        time.sleep(2) # Wait for swipe animation and content loading
 
-        # 返回执行的真实参数，用于保存数据集
         return {
-            "start":[int(start_x), int(start_y)],
-            "end": [int(end_x), int(end_y)],
+            "start": [int(start_x), int(start_y)],
+            "end":[int(end_x), int(end_y)],
             "duration": duration
         }
 
     def get_scrollable_elements_xml(self):
         """
-        利用 XML 提取明确的可滑动组件 (Scrollable Components)。
-        依据：scrollable="true" 或者是拖动条 (SeekBar)。
+        Extract explicitly scrollable components via XML.
+        Based on: scrollable="true" or SeekBar classes.
         """
         elements =[]
         try:
@@ -331,18 +316,16 @@ class UIAutomatorController:
                     
                     if x2 <= x1 or y2 <= y1: continue
                     
-                    # 确定滑动的优势方向 (Dominant Axis)
+                    # Determine dominant axis for swiping
                     width = x2 - x1
                     height = y2 - y1
-                    # 如果高度大于宽度，通常是上下滑动；反之则是左右滑动
                     direction = "vertical" if height > width else "horizontal"
                     
-                    # 提取组件内可能包含的文字（借鉴之前的聚合思想）
                     aggregated_texts = self._extract_all_text_from_node(node)
-                    final_text = " | ".join(aggregated_texts) if aggregated_texts else "无文本内容"
+                    final_text = " | ".join(aggregated_texts) if aggregated_texts else "No text content"
                     
                     elements.append({
-                        'category': 'component', # 标记为明确的组件
+                        'category': 'component',
                         'bounds': [x1, y1, x2, y2],
                         'direction': direction,
                         'text': final_text,
@@ -355,18 +338,13 @@ class UIAutomatorController:
     
     def wait_for_loading_to_finish(self, timeout=8.0):
         """
-        通过分析 XML 树，智能判断当前页面是否仍在显示加载动画（如菊花图、进度条）。
-        如果是，则主动阻塞等待，直到加载完成或超时，以防止产生“假阳性”数据。
+        Smartly determine if the current page is still displaying a loading animation (e.g., spinner, progress bar).
+        Blocks execution to prevent capturing 'false positive' data.
         """
         start_time = time.time()
         
-        # 常见的代表"加载中"的资源 ID 关键字
-        # resource-id="com.twitter.android:id/list_progress" class="android.widget.ProgressBar"
         loading_keywords = [
             'progress', 'spinner',
-            # 'refresh',    # text="" resource-id="com.twitter.android:id/swipe_refresh_layout" class="android.view.ViewGroup"
-                            # text="" resource-id="com.spotify.music:id/evo_swipe_refresh_layout" class="android.view.ViewGroup"
-            # 'loading',    # 先去掉，误伤了 fleetline_loading_holder
         ]
         
         while time.time() - start_time < timeout:
@@ -379,23 +357,20 @@ class UIAutomatorController:
                     cls = node.attrib.get('class', '')
                     res_id = node.attrib.get('resource-id', '').lower()
                     
-                    # 1. 严格匹配 Android 原生的进度转圈组件
+                    # 1. Match native Android progress spinners
                     if cls == 'android.widget.ProgressBar':
-                        # 排除掉视频/音频播放器的横向进度条（SeekBar 通常是另一个类，但有些魔改的播放器也会用 ProgressBar）
-                        # 我们可以通过长宽比过滤掉细长的播放进度条，只拦截方形的“菊花图”
                         bounds_str = node.attrib.get('bounds')
                         if bounds_str:
                             bounds_str = bounds_str.replace('][', ',').replace('[', '').replace(']', '')
                             x1, y1, x2, y2 = map(int, bounds_str.split(','))
                             w, h = x2 - x1, y2 - y1
-                            # 如果宽高比接近1（方形），且面积不太大，通常是 Loading 菊花图
+                            # Filter out thin video seekbars, targeting square spinners
                             if 0.5 < (w / (h + 0.1)) < 2.0:
                                 is_loading = True
                                 break
                                 
-                    # 2. 匹配开发者命名的 ID (如 list_progress)
+                    # 2. Match developer-named IDs
                     if any(kw in res_id for kw in loading_keywords):
-                        # 排除掉明确不是 Loading 的组件
                         if 'seekbar' not in cls.lower(): 
                             is_loading = True
                             break
@@ -404,8 +379,6 @@ class UIAutomatorController:
                 pass
                 
             if not is_loading:
-                # 确认没有加载框后，再额外硬等待 1 秒，给网络图片留一点渲染时间
-                # time.sleep(1.0)
                 return True
                 
             logging.info(f"      -> ⏳ Asynchronous loading detected... Blocking and waiting...")

@@ -4,34 +4,34 @@ import shutil
 from pathlib import Path
 
 def process_and_copy_item(item: dict, src_dir: Path, dest_dir: Path, pkg_name: str, existing_keys: set) -> bool:
-    """处理单条记录：重命名防止冲突，判断是否已存在，增量拷贝文件"""
+    """Process single record: rename to prevent collision, check existence, copy incrementally"""
     before_name = item.get('img_filename')
     after_name = item.get('after_image')
     
-    # 丢弃缺少图像引用的脏数据
+    # Discard dirty data missing image references
     if not before_name or not after_name:
         return False
         
-    # 构建加了包名前缀的新文件名
+    # Construct new file names with package prefix
     new_before = f"{pkg_name}_{before_name}"
     new_after = f"{pkg_name}_{after_name}"
     
-    # 【增量核心】如果这行数据已经在 summary 中存在，直接跳过，不再重复拷贝
+    # Skip if record already exists in summary (Incremental core logic)
     if new_before in existing_keys:
         return False
         
     src_before = src_dir / before_name
     src_after = src_dir / after_name
     
-    # 丢弃物理文件丢失的脏数据
+    # Discard if physical files are missing
     if not src_before.exists() or not src_after.exists():
         return False
     
-    # 拷贝图片资源
+    # Copy images
     shutil.copy(src_before, dest_dir / new_before)
     shutil.copy(src_after, dest_dir / new_after)
     
-    # 顺带拷贝对应的 XML（如果有）
+    # Copy corresponding XMLs if available
     xml_before = src_before.with_suffix('.xml')
     if xml_before.exists():
         shutil.copy(xml_before, dest_dir / new_before.replace('.png', '.xml'))
@@ -40,10 +40,10 @@ def process_and_copy_item(item: dict, src_dir: Path, dest_dir: Path, pkg_name: s
     if xml_after.exists():
         shutil.copy(xml_after, dest_dir / new_after.replace('.png', '.xml'))
         
-    # 更新 JSON 对象，指向新的文件名
+    # Update JSON objects to point to new filenames
     item['img_filename'] = new_before
     item['after_image'] = new_after
-    item['package'] = pkg_name  # 显式写入 package 字段，方便后续精准统计
+    item['package'] = pkg_name  # Write package explicitly for precise statistical tracking
     
     return True
 
@@ -58,10 +58,10 @@ def summary(target_pkg=None):
     swipe_all_file = summary_dir / "swipe_all.json"
     click_all_file = summary_dir / "click_all.json"
 
-    all_swipes_aggregated =[]
+    all_swipes_aggregated = []
     all_clicks_aggregated =[]
     
-    # 1. 预加载当前已存在的数据 (实现增量更新的基础)
+    # 1. Preload existing data (Base for incremental updates)
     if swipe_all_file.exists():
         with open(swipe_all_file, 'r', encoding='utf-8') as f:
             all_swipes_aggregated = json.load(f)
@@ -70,7 +70,7 @@ def summary(target_pkg=None):
         with open(click_all_file, 'r', encoding='utf-8') as f:
             all_clicks_aggregated = json.load(f)
 
-    # 用 O(1) 的 Set 来缓存已存在的文件名
+    # Use O(1) Set to cache existing filenames
     existing_swipes = {item['img_filename'] for item in all_swipes_aggregated}
     existing_clicks = {item['img_filename'] for item in all_clicks_aggregated}
 
@@ -78,9 +78,9 @@ def summary(target_pkg=None):
     new_swipes_count = 0
     new_clicks_count = 0
     
-    # 决定扫描的范围：如果指定了 target_pkg，就只扫那个包；否则扫描所有
+    # Determine scan scope: specific package or all packages
     if target_pkg:
-        dirs_to_process =[outputs_dir / f"{target_pkg}_dataset"]
+        dirs_to_process = [outputs_dir / f"{target_pkg}_dataset"]
     else:
         dirs_to_process = list(outputs_dir.glob("*_dataset"))
     
@@ -92,7 +92,7 @@ def summary(target_pkg=None):
         print(f"  -> Scanning: {pkg_name}")
         app_stats[pkg_name] = {'click': 0, 'swipe': 0}
         
-        # 2. 聚合 Swipe 数据
+        # 2. Aggregate Swipe data
         swipe_file = pkg_dir / "swipe_dataset.json"
         if swipe_file.exists():
             with open(swipe_file, 'r', encoding='utf-8') as f:
@@ -104,7 +104,7 @@ def summary(target_pkg=None):
                     app_stats[pkg_name]['swipe'] += 1
                     new_swipes_count += 1
 
-        # 3. 聚合 Click 数据
+        # 3. Aggregate Click data
         click_file = pkg_dir / "click_dataset.json"
         if click_file.exists():
             with open(click_file, 'r', encoding='utf-8') as f:
@@ -116,7 +116,7 @@ def summary(target_pkg=None):
                     app_stats[pkg_name]['click'] += 1
                     new_clicks_count += 1
 
-    # 如果有新数据产生，才去覆写 JSON，节省 I/O
+    # Overwrite JSON only if there are new additions to save I/O
     if new_swipes_count > 0 or new_clicks_count > 0:
         with open(swipe_all_file, 'w', encoding='utf-8') as f:
             json.dump(all_swipes_aggregated, f, ensure_ascii=False, indent=2)
@@ -133,7 +133,7 @@ def summary(target_pkg=None):
     print(f"   -> Click Actions: +{new_clicks_count}")
 
     # ==========================
-    # 🌟 1. 打印本次新增的数据分布 (仅在有新增时显示)
+    # 🌟 1. Print Newly Added Distribution (Only if changes occurred)
     # ==========================
     if new_swipes_count > 0 or new_clicks_count > 0:
         md_output = "\n### 📈 Newly Added Dataset Distribution\n\n"
@@ -152,19 +152,18 @@ def summary(target_pkg=None):
         print(md_output)
 
     # ==========================
-    # 🌟 2. 打印全局(Overall)的数据分布
+    # 🌟 2. Print Overall Dataset Distribution
     # ==========================
     overall_stats = {}
     
     def extract_pkg(item):
-        """兼容老数据的包名提取逻辑"""
+        """Extract package name with fallback for legacy data formats"""
         if 'package' in item:
             return item['package']
         name = item.get('img_filename', '')
-        # 如果是老格式，从文件名推导包名
         return name.split('_page_')[0] if '_page_' in name else name.split('_')[0]
 
-    # 统计汇总表
+    # Aggregate total stats
     for item in all_swipes_aggregated:
         pkg = extract_pkg(item)
         overall_stats.setdefault(pkg, {'click': 0, 'swipe': 0})['swipe'] += 1
@@ -189,5 +188,4 @@ def summary(target_pkg=None):
     print(md_overall)
 
 if __name__ == "__main__":
-    # 如果直接作为主程序运行，默认扫描所有包执行增量更新
     summary()

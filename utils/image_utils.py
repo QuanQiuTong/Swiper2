@@ -4,24 +4,24 @@ import numpy as np
 class ImageUtils:
     @staticmethod
     def get_skeleton_image(image_path: str) -> np.ndarray:
-        """提取图像的骨架图"""
+        """Extract the UI skeleton graph of an image"""
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         if img is None:
             raise ValueError(f"Failed to load Image: {image_path}")
         
-        # 1. 缩小分辨率，抹平过细的细节
+        # 1. Downscale to smooth out minute details
         scale_percent = 300 / img.shape[1]
         width = int(img.shape[1] * scale_percent)
         height = int(img.shape[0] * scale_percent)
         resized = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
         
-        # 2. 高斯模糊，进一步去除内容纹理
+        # 2. Gaussian blur to remove content textures
         blurred = cv2.GaussianBlur(resized, (5, 5), 0)
         
-        # 3. 边缘检测，提取UI组件的边界骨架
+        # 3. Edge detection to extract UI component boundaries
         edges = cv2.Canny(blurred, 50, 150)
         
-        # 4. 膨胀操作，让组件的边框更加粗壮连贯
+        # 4. Dilation to make component borders thicker and continuous
         kernel = np.ones((3, 3), np.uint8)
         skeleton = cv2.dilate(edges, kernel, iterations=1)
         
@@ -29,13 +29,13 @@ class ImageUtils:
 
     @staticmethod
     def save_skeleton(image_path: str, output_path: str):
-        """生成并保存骨架图用于直观展示"""
+        """Generate and save the skeleton image for visual debugging"""
         skeleton = ImageUtils.get_skeleton_image(image_path)
         cv2.imwrite(output_path, skeleton)
 
     @staticmethod
     def calculate_skeleton_similarity(img_path1: str, img_path2: str) -> float:
-        """计算两张截图的骨架相似度"""
+        """Calculate the structural skeleton similarity between two screenshots"""
         skel1 = ImageUtils.get_skeleton_image(img_path1)
         skel2 = ImageUtils.get_skeleton_image(img_path2)
         
@@ -53,8 +53,8 @@ class ImageUtils:
     
 def calculate_image_diff(img_path1: str, img_path2: str, threshold=0.01) -> bool:
     """
-    计算两张截图的像素级差异。
-    用于判断滑动操作是否引发了界面的实质性改变。
+    Compute pixel-level difference between two screenshots.
+    Used to determine if a swipe action triggered substantial UI changes.
     """
     import cv2
     import numpy as np
@@ -68,12 +68,12 @@ def calculate_image_diff(img_path1: str, img_path2: str, threshold=0.01) -> bool
     if img1.shape != img2.shape:
         img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
         
-    # 计算绝对差值
+    # Calculate absolute differences
     diff = cv2.absdiff(img1, img2)
-    # 二值化，过滤掉微小的渲染噪点（像素差大于10认为是变化）
+    # Binarize to filter out minor rendering noise (pixel delta > 10 is considered change)
     _, diff_thresh = cv2.threshold(diff, 10, 255, cv2.THRESH_BINARY)
     
-    # 计算变化像素占总像素的比例
+    # Calculate the ratio of changed pixels to total pixels
     change_ratio = np.count_nonzero(diff_thresh) / diff_thresh.size
     print(f"[Verify] UI change ratio: {change_ratio:.4f} (Threshold: {threshold})")
     
@@ -81,38 +81,35 @@ def calculate_image_diff(img_path1: str, img_path2: str, threshold=0.01) -> bool
     
 
 def mask(img, box, reason):
-    """绘制美化的打码框，增强可解释性"""
+    """Draw aesthetically pleasing anonymization masks for better interpretability"""
     x1, y1, x2, y2 = box
     box_w, box_h = x2 - x1, y2 - y1
     
-    # A. 绘制黑色填充背景框 (厚度参数 -1 表示实心填充)
+    # A. Draw solid black background rectangle (thickness -1 means fill)
     cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 0), -1)
     
-    # B. 绘制灰色外边框 (厚度为 2)
+    # B. Draw gray outer border (thickness 2)
     cv2.rectangle(img, (x1, y1), (x2, y2), (128, 128, 128), 2)
     
-    # C. 绘制打码原因文字 (白字)
-    if box_w > 20 and box_h > 12: # 过滤掉极小的点（比如只是个10x10的像素点，写不下字）
+    # C. Draw anonymization reason text (white)
+    if box_w > 20 and box_h > 12: # Filter out extremely small boxes
         text_str = f"[{reason}]"
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.5
         thickness = 1
         
-        # 获取该字体在当前设置下的像素宽和高
+        # Get text size dynamically
         (text_w, text_h), _ = cv2.getTextSize(text_str, font, font_scale, thickness)
         
-        # 【核心】动态自适应字体大小，防止文字比黑框还要长导致溢出
+        # Core logic: Dynamically auto-scale font size to prevent text overflow
         if text_w > box_w - 4:
             font_scale = font_scale * ((box_w - 4) / text_w)
-            # 重新计算缩放后的尺寸
             (text_w, text_h), _ = cv2.getTextSize(text_str, font, font_scale, thickness)
         
-        # 只有缩放后还能勉强看清（比例 > 0.15）的才画上去
+        # Render text only if it's large enough to be legible
         if font_scale > 0.15:
-            # 计算文字居中的起始坐标
             text_x = int(x1 + (box_w - text_w) / 2)
             text_y = int(y1 + (box_h + text_h) / 2)
-            # 写上白色文字，并使用 cv2.LINE_AA 开启抗锯齿让字体平滑
             cv2.putText(img, text_str, (text_x, text_y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
 
     return img

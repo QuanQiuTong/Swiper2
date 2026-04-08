@@ -20,26 +20,26 @@ class Phase2Swiper:
             from vlm.local_vlm import LocalVLMClient
             self.vlm = LocalVLMClient(model_path=url, screen_size=self.screen_size)
 
-        # Phase 2 成功执行并验证的滑动数据集输出目录 (相当于已经按 App 归档好了)
+        # Output directory for successfully verified Phase 2 dataset (App-level archiving)
         self.output_dir = Path("outputs") / f"{self.package}_dataset"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.temp_dir = Path("outputs") / "temp"
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
-        # === 【断点续传核心变量】 ===
+        # === Breakpoint Resume Core Variables ===
         self.dataset_file = self.output_dir / "swipe_dataset.json"
         self.click_dataset_file = self.output_dir / "click_dataset.json"
         self.progress_file = self.output_dir / "phase2_progress.json"
 
-        self.successful_swipes =[]
+        self.successful_swipes = []
         self.successful_clicks =[]
         self.processed_pages = set()
 
         self._load_resume_data()
 
     def _load_resume_data(self):
-        """加载断点续传数据"""
+        """Load breakpoint resume data"""
         if self.dataset_file.exists():
             try:
                 with open(self.dataset_file, 'r', encoding='utf-8') as f:
@@ -48,7 +48,6 @@ class Phase2Swiper:
             except Exception as e:
                 logging.error(f"  -> ⚠️ Failed to read existing dataset: {e}")
 
-        # 恢复已有的点击数据
         if self.click_dataset_file.exists():
             try:
                 with open(self.click_dataset_file, 'r', encoding='utf-8') as f:
@@ -66,34 +65,33 @@ class Phase2Swiper:
                 logging.error(f"  -> ⚠️ Failed to read progress file: {e}")
 
     def save_progress(self, page_id):
-        """将处理完毕的页面存入进度文件"""
+        """Save fully processed pages to progress file"""
         self.processed_pages.add(page_id)
         with open(self.progress_file, 'w', encoding='utf-8') as f:
             json.dump(list(self.processed_pages), f, ensure_ascii=False, indent=2)
 
     def load_memory(self):
-        # Phase 1 骨架构建完成后的页面存档路径
+        """Load Phase 1 map data"""
         memory_file = Path("outputs") / self.package / "memory_graph.json"
         if not memory_file.exists():
             raise FileNotFoundError(f"Cannot find Phase 1 map data: {memory_file}")
         with open(memory_file, 'r', encoding='utf-8') as f:
             return json.load(f)
 
-    # 为跳转到当前页面的 Click 操作通过 VLM 提取意图，完全在电脑端本地离线完成
     def _synthesize_click_for_page(self, page, pages):
+        """Extract VLM intent offline for the Click action navigating to this page"""
         if not page.get('trajectory'):
-            return # 首页没有触发它的 click，跳过
+            return 
             
         page_id = page['page_id']
         parent_page_id = page.get('parent_page_id')
         if not parent_page_id:
             return
 
-        # 去重检查：如果当前页面对应的 click 数据已经生成过了，跳过
+        # Deduplication: Skip if click data for this page exists
         if any(c.get('target_page') == page_id for c in self.successful_clicks):
             return
 
-        # 寻找父节点
         parent_page = next((p for p in pages if p['page_id'] == parent_page_id), None)
         if not parent_page:
             return
@@ -111,21 +109,20 @@ class Phase2Swiper:
 
         logging.info(f"  -> Requesting VLM intent for Click action from {parent_page_id} to {page_id}...")
         
-        # 兼容老数据
+        # Legacy data compatibility
         if not physical_bbox:
             physical_bbox =[max(0, cx-20), max(0, cy-20), cx+20, cy+20]
 
         instruction = self.vlm.generate_intent_for_click(str(src_before_img), physical_bbox, desc)
         logging.info(f"     [Click] Generated intent: {instruction}")
         
-        # 将原始文件拷贝到 dataset 目录，实现数据自包含
+        # Copy original files to dataset directory for self-containment
         dest_before_name = f"{page_id}_click_before.png"
         dest_after_name = f"{page_id}_click_after.png"
         
         shutil.copy(src_before_img, self.output_dir / dest_before_name)
         shutil.copy(src_after_img, self.output_dir / dest_after_name)
 
-        # 拷贝对应的 XML
         src_before_xml = src_before_img.with_suffix('.xml')
         if src_before_xml.exists():
             shutil.copy(src_before_xml, self.output_dir / f"{page_id}_click_before.xml")
@@ -134,21 +131,21 @@ class Phase2Swiper:
             shutil.copy(src_after_xml, self.output_dir / f"{page_id}_click_after.xml")
         
         w, h = self.screen_size
-        norm_bbox = [
+        norm_bbox =[
             int(physical_bbox[0]/w*1000), int(physical_bbox[1]/h*1000),
             int(physical_bbox[2]/w*1000), int(physical_bbox[3]/h*1000)
         ]
         norm_x, norm_y = int(cx/w*1000), int(cy/h*1000)
         
         data_entry = {
-            "img_filename": dest_before_name,  # 仅保留干净的文件名
+            "img_filename": dest_before_name, 
             "target_page": page_id,
-            "after_image": dest_after_name,    # 仅保留干净的文件名
+            "after_image": dest_after_name,   
             "action_data": {
                 "action": "click",
                 "bbox": norm_bbox,
-                "start": [norm_x, norm_y], # 已经 norm 过，不能再除以屏幕尺寸了
-                "end": [norm_x, norm_y],
+                "start": [norm_x, norm_y], 
+                "end":[norm_x, norm_y],
                 "instruction": instruction,
                 "description": desc
             }
@@ -158,15 +155,13 @@ class Phase2Swiper:
         self.save_dataset()
 
     def get_swipe_candidates(self, page_id):
-        """获取当前页面的滑动候选目标，来源于 XML 组件和 VLM 视觉分析"""
-
-        # 当场截取当前实时画面
+        """Get swipe candidates via XML components and VLM visual regions"""
         live_img_path = str(self.temp_dir / f"live_{page_id}.png")
         self.controller.take_screenshot(live_img_path)
 
         all_swipe_candidates =[]
 
-        # --- 来源 1：提取 Phase 1 中 XML 找到的组件 ---
+        # --- Source 1: XML Components ---
         logging.info(f"  -> Extracting live XML components from current page...")
         xml_components = self.controller.get_scrollable_elements_xml()
 
@@ -177,7 +172,6 @@ class Phase2Swiper:
                     live_img_path, comp['bounds'], comp['direction'], comp['text']
                 )
 
-                # 坐标转换：把 XML 的物理坐标转成归一化坐标送进待测队列
                 w, h = self.screen_size
                 norm_bbox = [
                     int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
@@ -193,7 +187,7 @@ class Phase2Swiper:
                 })
                 logging.info(f"[Component] Generated intent: {intent_cmd}")
 
-        # --- 来源 2：让 VLM 补充视觉上的大滑动区域 ---
+        # --- Source 2: VLM Visual Regions ---
         logging.info(f"  -> Calling VLM to analyze purely visual slidable regions (Regions)...")
         vlm_regions = self.vlm.analyze_slidable_regions(live_img_path)
         if vlm_regions:
@@ -210,33 +204,29 @@ class Phase2Swiper:
         for page in pages:
             page_id = page['page_id']
 
-            # 断点续传
             if page_id in self.processed_pages:
                 logging.info(f"--- ⏭️ Node {page_id} already processed, skipping ---")
                 continue
 
-            img_path = page['image_path']
             trajectory = page['trajectory']
 
             logging.info(f"\n==================================================")
             logging.info(f"--- Processing node: {page_id} / {len(pages)} ---")
 
-            # 先为导致这个页面产生的 点击(Click) 动作生成意图 (完全离线)
             self._synthesize_click_for_page(page, pages)
 
-            # 先通过轨迹到达目标页面 (关闭强校验，适应动态内容)
             logging.info(f"  -> Replaying trajectory to target page...")
             if not self.controller.replay_trajectory_unverified(self.package, trajectory):
                 logging.error(f"  -> ❌ Exited target App during replay. Skipping this page.")
                 continue
 
-            # Debounce: Ensure page is fully loaded before VLM analysis
+            # Ensure dynamic content loads
             self.controller.wait_for_loading_to_finish()
-            time.sleep(8) # 额外加时，确保动态内容也加载出来了
+            time.sleep(8) 
 
             swipe_candidates = self.get_swipe_candidates(page_id)
 
-            for idx, candidate in enumerate(swipe_candidates): # 注意：这里的 idx 是针对每个页面独立计数的，确保了即使中途重启也不会重复执行同一个目标
+            for idx, candidate in enumerate(swipe_candidates): 
                 if idx > 0:
                     logging.info(f"\n    -> Resetting state, re-navigating to target page...")
                     if not self.controller.replay_trajectory_unverified(self.package, trajectory):
@@ -244,12 +234,9 @@ class Phase2Swiper:
                         continue
                 self.validate_swipe(idx, candidate, page_id)
 
-            # === 【断点续传：页面完结记录】 ===
-            # 当这个页面的所有 candidates 都测完后，记录该页面彻底完成
             self.save_progress(page_id)
             logging.info(f"  => All swipe evaluations for node {page_id} completed, progress saved.")
 
-        # 连续back回到桌面
         for _ in range(6):
             self.controller.d.press("back")
         logging.info(f"\n=== Phase 2 Complete! Synthesized {len(self.successful_swipes)} swipe records and {len(self.successful_clicks)} click records. ===")
@@ -257,29 +244,27 @@ class Phase2Swiper:
     def validate_swipe(self, idx, candidate, page_id):
         logging.info(f"\n[Executing {idx+1}] {candidate.get('category')} | Intent: {candidate.get('command')}")
 
-        # Debounce: Ensure no loading indicators remain before taking the baseline screenshot
         time.sleep(8)
         self.controller.wait_for_loading_to_finish()
 
-        # 步骤 B：执行滑动前的截图 (此时底层的 controller 已经同时生成了 temp_before.xml)
+        # Step B: Capture before image
         before_img = str(self.output_dir / "temp_before.png")
         before_xml = str(self.output_dir / "temp_before.xml")
         self.controller.take_screenshot(before_img)
 
-        # 步骤 C：执行滑动
+        # Step C: Execute swipe
         swipe_params = self.controller.swipe_by_normalized_bbox(
             bbox=candidate['bbox'],
             direction=candidate['direction']
         )
 
-        # 步骤 D：执行滑动后的截图 (同样生成了 temp_after.xml)
-        # 滑动后通常会拉取新数据，为了确保新数据渲染出来能被 diff 侦测到，在这里也等一下加载！
+        # Step D: Capture after image
         self.controller.wait_for_loading_to_finish(timeout=4)
         after_img = str(self.output_dir / "temp_after.png")
         after_xml = str(self.output_dir / "temp_after.xml")
         self.controller.take_screenshot(after_img)
 
-        # 步骤 E：对比验证
+        # Step E: Compare and Verify
         is_success = calculate_image_diff(before_img, after_img, threshold=0.01)
 
         if is_success:
@@ -291,7 +276,6 @@ class Phase2Swiper:
             final_after_img = self.output_dir / f"{dataset_id}_after.png"
             final_after_xml = self.output_dir / f"{dataset_id}_after.xml"
 
-            # 移动图片和 XML 到正式目录并重命名
             shutil.move(before_img, final_before_img)
             shutil.move(after_img, final_after_img)
             shutil.move(before_xml, final_before_xml)
@@ -312,38 +296,34 @@ class Phase2Swiper:
                 "start": convert([sx, sy]),
                 "end": convert([ex, ey]),
                 "duration": swipe_params['duration'],
-                # "direction": 默认不标记，后续根据坐标变化补充（如果是纯水平或纯垂直滑动的话） 
             }
 
-            if sx == ex:    # x不变，竖向滑动
+            if sx == ex:
                 action['direction'] = "up" if sy > ey else "down"
-            elif sy == ey:  # y不变，横向滑动
+            elif sy == ey:  
                 action['direction'] = "left" if sx > ex else "right"
-            else:           # 并非纯水平或垂直滑动，暂不标记
+            else:           
                 pass
 
             self.successful_swipes.append({
-                "img_filename": f"{dataset_id}_before.png",  # 仅保留干净的文件名
-                "after_image": f"{dataset_id}_after.png",    # 显式加上 after_image
+                "img_filename": f"{dataset_id}_before.png", 
+                "after_image": f"{dataset_id}_after.png", 
                 "action_data": action
             })
             self.save_dataset()
         else:
             logging.info(f"    -> ❌ Verification failed! No UI changes after swipe. Discarding data.")
-            # 验证失败时清理掉没用的临时文件，保持磁盘干净
-            for temp_file in[before_img, before_xml, after_img, after_xml]:
+            for temp_file in [before_img, before_xml, after_img, after_xml]:
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
 
     def save_dataset(self):
-        # 基于文件名去重，防止断点续传产生重复数据
         unique_swipes = {s['img_filename']: s for s in self.successful_swipes}
         self.successful_swipes = list(unique_swipes.values())
 
         with open(self.dataset_file, 'w', encoding='utf-8') as f:
             json.dump(self.successful_swipes, f, ensure_ascii=False, indent=2)
             
-        # 同时保存去重后的 Click 数据集
         unique_clicks = {s['target_page']: s for s in self.successful_clicks}
         self.successful_clicks = list(unique_clicks.values())
         
@@ -351,8 +331,3 @@ class Phase2Swiper:
             json.dump(self.successful_clicks, f, ensure_ascii=False, indent=2)
             
         logging.info(f"Data synced and saved. Swipe: {len(self.successful_swipes)} records, Click: {len(self.successful_clicks)} records.")
-
-if __name__ == "__main__":
-    target_app = "com.twitter.android"
-    swiper = Phase2Swiper(package_name=target_app, remote_vlm=False)
-    swiper.run_synthesis()
