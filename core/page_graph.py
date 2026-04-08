@@ -49,7 +49,7 @@ class PageMemory:
                 self.pages.append(node)
             return True
         except Exception as e:
-            logging.error(f"加载地图缓存失败: {e}")
+            logging.error(f"Failed to load map cache: {e}")
             return False
 
     def is_new_page(self, new_image_path: str):
@@ -71,7 +71,7 @@ class PageMemory:
         # 定义最终的存储路径
         final_img_path = self.output_dir / f"{page_id}.png"
         final_skel_path = self.output_dir / f"{page_id}_skeleton.png"
-        final_xml_path = self.output_dir / f"{page_id}.xml"  # 新增
+        final_xml_path = self.output_dir / f"{page_id}.xml"
         
         # 移动临时图片到正式目录
         shutil.move(temp_image_path, final_img_path)
@@ -110,10 +110,10 @@ class PageMemory:
                 "skeleton_path": p.skeleton_path,
                 "trajectory": p.trajectory,
                 "scrollable_components": getattr(p, 'scrollable_components',[]),
-                "visited_elements": list(p.visited_elements),  # 记录断点
+                "visited_elements": list(p.visited_elements),
                 "is_fully_explored": getattr(p, 'is_fully_explored', False)
             })
         
         with open(self.json_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        logging.info(f"页面图谱已保存至: {self.json_file}")
+        logging.info(f"Page graph saved to: {self.json_file}")

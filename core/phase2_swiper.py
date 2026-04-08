@@ -13,10 +13,10 @@ class Phase2Swiper:
         self.controller = UIAutomatorController()
 
         if use_local_vlm:
-            from core.local_vlm import LocalVLMClient
+            from vlm.local_vlm import LocalVLMClient
             self.vlm = LocalVLMClient(model_path="Qwen/Qwen3-VL-4B-Instruct")
         else:
-            from core.vlm_client import VLMClient
+            from vlm.vlm_client import VLMClient
             self.vlm = VLMClient(server_url="http://127.0.0.1:8000")
 
         # Phase 2 成功执行并验证的滑动数据集输出目录

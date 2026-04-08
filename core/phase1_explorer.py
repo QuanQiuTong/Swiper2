@@ -34,7 +34,7 @@ class Phase1Explorer:
             
             temp_home = str(self.temp_dir / "temp_home.png")
             self.controller.take_screenshot(temp_home)
-            # 【修改点】首页没有父节点，传入 parent_page_id=None
+            # 首页没有父节点，传入 parent_page_id=None
             home_page_id = self.memory.add_page(temp_home, trajectory=[], parent_page_id=None)
             logging.info(f"Recorded Home Page: {home_page_id}")
             queue.append(home_page_id)

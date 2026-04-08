@@ -5,10 +5,10 @@ from PIL import Image
 from pathlib import Path
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
-from core.prompts import (
-    REGION_TASK_PROMPT_EN, REGION_EXAMPLE_ASSISTANT_EN,
-    COMPONENT_TASK_PROMPT_EN, COMPONENT_EXAMPLE_PROMPT_EN, COMPONENT_EXAMPLE_ASSISTANT_EN,
-    CLICK_TASK_PROMPT_EN, CLICK_EXAMPLE_PROMPT_EN, CLICK_EXAMPLE_ASSISTANT_EN
+from vlm.prompts import (
+    REGION_TASK_PROMPT, REGION_EXAMPLE_ASSISTANT,
+    COMPONENT_TASK_PROMPT, COMPONENT_EXAMPLE_PROMPT, COMPONENT_EXAMPLE_ASSISTANT,
+    CLICK_TASK_PROMPT, CLICK_EXAMPLE_PROMPT, CLICK_EXAMPLE_ASSISTANT
 )
 
 class LocalVLMClient:
@@ -96,10 +96,10 @@ class LocalVLMClient:
             
             response_text = self._generate_text(
                 target_image=target_image,
-                target_prompt=REGION_TASK_PROMPT_EN,
+                target_prompt=REGION_TASK_PROMPT,
                 ex_image=self.ex_region_img,
-                ex_user_prompt=REGION_TASK_PROMPT_EN,
-                ex_assistant_reply=REGION_EXAMPLE_ASSISTANT_EN,
+                ex_user_prompt=REGION_TASK_PROMPT,
+                ex_assistant_reply=REGION_EXAMPLE_ASSISTANT,
                 max_tokens=2048
             )
             return self._parse_json_response(response_text)
@@ -116,15 +116,15 @@ class LocalVLMClient:
                 int(bbox[2]/w*1000), int(bbox[3]/h*1000)
             ]
             
-            target_prompt = COMPONENT_TASK_PROMPT_EN.format(norm_bbox, direction, context_text)
+            target_prompt = COMPONENT_TASK_PROMPT.format(norm_bbox, direction, context_text)
             target_image = Image.open(image_path).convert("RGB")
             
             response_text = self._generate_text(
                 target_image=target_image,
                 target_prompt=target_prompt,
                 ex_image=self.ex_comp_img,
-                ex_user_prompt=COMPONENT_EXAMPLE_PROMPT_EN,
-                ex_assistant_reply=COMPONENT_EXAMPLE_ASSISTANT_EN,
+                ex_user_prompt=COMPONENT_EXAMPLE_PROMPT,
+                ex_assistant_reply=COMPONENT_EXAMPLE_ASSISTANT,
                 max_tokens=512
             )
             
@@ -145,7 +145,7 @@ class LocalVLMClient:
                 int(bbox[2]/w*1000), int(bbox[3]/h*1000)
             ]
             
-            target_prompt = CLICK_TASK_PROMPT_EN.format(norm_bbox, context_text)
+            target_prompt = CLICK_TASK_PROMPT.format(norm_bbox, context_text)
             target_image = Image.open(image_path).convert("RGB")
             
             # 点击意图同样复用 Component 的示例图（因为它也能表现出理解 Bbox 的能力）
@@ -153,8 +153,8 @@ class LocalVLMClient:
                 target_image=target_image,
                 target_prompt=target_prompt,
                 ex_image=self.ex_comp_img,
-                ex_user_prompt=CLICK_EXAMPLE_PROMPT_EN,
-                ex_assistant_reply=CLICK_EXAMPLE_ASSISTANT_EN,
+                ex_user_prompt=CLICK_EXAMPLE_PROMPT,
+                ex_assistant_reply=CLICK_EXAMPLE_ASSISTANT,
                 max_tokens=512
             )
             

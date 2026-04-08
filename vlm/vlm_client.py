@@ -1,12 +1,11 @@
-# core/vlm_client.py
 import requests
 import base64
 import json
 import os
 from pathlib import Path
-from core.prompts import (
-    REGION_TASK_PROMPT_EN, REGION_EXAMPLE_ASSISTANT_EN,
-    COMPONENT_TASK_PROMPT_EN, COMPONENT_EXAMPLE_PROMPT_EN, COMPONENT_EXAMPLE_ASSISTANT_EN
+from vlm.prompts import (
+    REGION_TASK_PROMPT, REGION_EXAMPLE_ASSISTANT,
+    COMPONENT_TASK_PROMPT, COMPONENT_EXAMPLE_PROMPT, COMPONENT_EXAMPLE_ASSISTANT
 )
 
 class VLMClient:
@@ -33,13 +32,13 @@ class VLMClient:
         """发送截图给远程 VLM，获取可滑动大区域列表"""
         payload = {
             "target_image_base64": self._encode_image(image_path),
-            "target_user_prompt": REGION_TASK_PROMPT_EN
+            "target_user_prompt": REGION_TASK_PROMPT
         }
         
         if self.ex_region_b64:
             payload["example_image_base64"] = self.ex_region_b64
-            payload["example_user_prompt"] = REGION_TASK_PROMPT_EN
-            payload["example_assistant_reply"] = REGION_EXAMPLE_ASSISTANT_EN
+            payload["example_user_prompt"] = REGION_TASK_PROMPT
+            payload["example_assistant_reply"] = REGION_EXAMPLE_ASSISTANT
 
         try:
             print(f"  [VLM Client] Analyzing visual regions (One-Shot): {Path(image_path).name} ...")
@@ -61,7 +60,7 @@ class VLMClient:
             int(bbox[2]/w*1000), int(bbox[3]/h*1000)
         ]
         
-        target_prompt = COMPONENT_TASK_PROMPT_EN.format(norm_bbox, direction, context_text)
+        target_prompt = COMPONENT_TASK_PROMPT.format(norm_bbox, direction, context_text)
         
         payload = {
             "target_image_base64": self._encode_image(image_path),
@@ -70,8 +69,8 @@ class VLMClient:
         
         if self.ex_comp_b64:
             payload["example_image_base64"] = self.ex_comp_b64
-            payload["example_user_prompt"] = COMPONENT_EXAMPLE_PROMPT_EN
-            payload["example_assistant_reply"] = COMPONENT_EXAMPLE_ASSISTANT_EN
+            payload["example_user_prompt"] = COMPONENT_EXAMPLE_PROMPT
+            payload["example_assistant_reply"] = COMPONENT_EXAMPLE_ASSISTANT
 
         try:
             resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=60)
@@ -114,8 +113,8 @@ class VLMClient:
             int(bbox[2] / w * 1000), int(bbox[3] / h * 1000)
         ]
         
-        from core.prompts import CLICK_TASK_PROMPT_EN, CLICK_EXAMPLE_PROMPT_EN, CLICK_EXAMPLE_ASSISTANT_EN
-        target_prompt = CLICK_TASK_PROMPT_EN.format(norm_bbox, context_text)
+        from vlm.prompts import CLICK_TASK_PROMPT, CLICK_EXAMPLE_PROMPT, CLICK_EXAMPLE_ASSISTANT
+        target_prompt = CLICK_TASK_PROMPT.format(norm_bbox, context_text)
         
         payload = {
             "target_image_base64": self._encode_image(image_path),
@@ -125,8 +124,8 @@ class VLMClient:
         # 复用 component 的 example 图像作为点击的 one-shot 示例图
         if self.ex_comp_b64:
             payload["example_image_base64"] = self.ex_comp_b64
-            payload["example_user_prompt"] = CLICK_EXAMPLE_PROMPT_EN
-            payload["example_assistant_reply"] = CLICK_EXAMPLE_ASSISTANT_EN
+            payload["example_user_prompt"] = CLICK_EXAMPLE_PROMPT
+            payload["example_assistant_reply"] = CLICK_EXAMPLE_ASSISTANT
 
         try:
             resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=60)

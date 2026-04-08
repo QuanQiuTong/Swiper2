@@ -1,5 +1,5 @@
-from phase1_explorer import Phase1Explorer
-from phase2_swiper import Phase2Swiper
+from core.phase1_explorer import Phase1Explorer
+from core.phase2_swiper import Phase2Swiper
 
 import logging
 import sys

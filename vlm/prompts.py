@@ -1,7 +1,7 @@
 # ==========================================
 # 1. 纯视觉寻找大滑动区域 (Region)
 # ==========================================
-REGION_TASK_PROMPT_EN = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
+REGION_TASK_PROMPT = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
 Your task is to identify **ALL** implicit or large "slidable regions" on the screen (e.g., content feeds, image waterfalls, horizontally scrollable card carousels, expandable side drawers, etc.).
 
 Please first think privately within the <think> and </think> tags. Your thinking process should include:
@@ -20,7 +20,7 @@ JSON format requirements:
 STRICT REQUIREMENT: After </think>, you must output ONLY a valid JSON array. Do not include markdown tags like ```json.
 """
 
-REGION_EXAMPLE_ASSISTANT_EN = """<think>
+REGION_EXAMPLE_ASSISTANT = """<think>
 This is a screenshot of a social media app's home page.
 I see a large content area in the middle, and the text at the bottom is truncated, indicating this is a vertical dynamic feed.
 There is a navigation bar at the top and a tab bar at the bottom, so the main area from y=150 to y=920 is a vertically slidable region.
@@ -38,7 +38,7 @@ There is a navigation bar at the top and a tab bar at the bottom, so the main ar
 # ==========================================
 # 2. 为 XML 组件生成意图指令 (Component)
 # ==========================================
-COMPONENT_TASK_PROMPT_EN = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
+COMPONENT_TASK_PROMPT = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
 I have located a [Scrollable Component] for you via underlying code.
 Its normalized bounding box (bbox) is: {}.
 Its supported swipe direction is: "{}".
@@ -53,9 +53,9 @@ After thinking, return ONLY ONE specific, clear natural language action instruct
 Note: After </think>, output only the plain text of this instruction, with no extra words.
 """
 
-COMPONENT_EXAMPLE_PROMPT_EN = COMPONENT_TASK_PROMPT_EN.format("[0, 100, 1000, 900]", "vertical", "Settings | Network | Bluetooth | Display")
+COMPONENT_EXAMPLE_PROMPT = COMPONENT_TASK_PROMPT.format("[0, 100, 1000, 900]", "vertical", "Settings | Network | Bluetooth | Display")
 
-COMPONENT_EXAMPLE_ASSISTANT_EN = """<think>
+COMPONENT_EXAMPLE_ASSISTANT = """<think>
 Located the component at bbox[0, 100, 1000, 900]. The internal text shows "Settings | Network | Bluetooth | Display".
 This is a typical system settings list. The direction is "vertical".
 If a user swipes on this component, the intent is obviously to scroll down to see other hidden setting items.
@@ -67,7 +67,7 @@ Scroll down the settings list to find more system options"""
 # ==========================================
 # 3. 为 Click (点击) 操作生成意图指令
 # ==========================================
-CLICK_TASK_PROMPT_EN = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
+CLICK_TASK_PROMPT = """You are an intelligent GUI automation testing expert. This is a screenshot of a mobile application UI.
 I have located a [Clickable Component] that a user is about to tap.
 Its normalized bounding box (bbox) is: {}.
 The text or description of this component is: "{}".
@@ -81,9 +81,9 @@ After thinking, return ONLY ONE specific, clear natural language action instruct
 Note: After </think>, output only the plain text of this instruction, with no extra words.
 """
 
-CLICK_EXAMPLE_PROMPT_EN = CLICK_TASK_PROMPT_EN.format("[850, 100, 950, 200]", "Search")
+CLICK_EXAMPLE_PROMPT = CLICK_TASK_PROMPT.format("[850, 100, 950, 200]", "Search")
 
-CLICK_EXAMPLE_ASSISTANT_EN = """<think>
+CLICK_EXAMPLE_ASSISTANT = """<think>
 Located the component at bbox[850, 100, 950, 200]. It is in the top right corner of the screen, typically where a search icon is placed. The text description confirms it is "Search".
 Tapping this component is intended to open the search bar or search page.
 Therefore, the instruction should clearly state "Tap the search icon to find content".
