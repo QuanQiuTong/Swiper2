@@ -134,7 +134,7 @@ def generate_ultimate_summary():
         app_stats[app_name]['swipe'] += 1
 
     # 生成 Markdown 格式输出
-    # md_output = "\n### 📈 Stat of App distribution in this dataset \n\n"
+    md_output = "\n### 📈 Stat of App distribution in this dataset \n\n"
     md_output += "| App | Click | Swipe | Total |\n"
     md_output += "| :--- | :---: | :---: | :---: |\n"
 

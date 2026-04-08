@@ -237,8 +237,8 @@ class Phase2Swiper:
         # 连续back回到桌面
         for _ in range(6):
             self.controller.d.press("back")
-        logging.info(f"\n=== Phase 2 完成！共合成 {len(self.successful_swipes)} 条滑动数据，{len(self.successful_clicks)} 条点击数据。 ===")
-
+        logging.info(f"\n=== Phase 2 Complete! Synthesized {len(self.successful_swipes)} swipe records and {len(self.successful_clicks)} click records. ===")
+        
     def validate_swipe(self, idx, candidate, page_id):
         logging.info(f"\n[Executing {idx+1}] {candidate.get('category')} | Intent: {candidate.get('command')}")
 

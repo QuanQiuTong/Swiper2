@@ -10,7 +10,7 @@ from core.prompts import (
 )
 
 class VLMClient:
-    def __init__(self, server_url="http://127.0.0.1:8000"):
+    def __init__(self, server_url="http://localhost:8000"):
         self.server_url = server_url.rstrip("/")
         
         # 预加载 One-Shot 示例图 (如果文件不存在，也不报错，退化为 zero-shot)
