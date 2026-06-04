@@ -1,4 +1,5 @@
 import requests
+import time
 import base64
 import json
 import os
@@ -12,6 +13,7 @@ class VLMClient:
     def __init__(self, server_url="http://localhost:8000", screen_size=(1080, 2400)):
         self.server_url = server_url.rstrip("/")
         self.screen_size = screen_size
+        self.usage_by_task = {}
         
         # Preload One-Shot example images (fallback to zero-shot without errors if missing)
         self.ex_region_b64 = None
@@ -29,6 +31,64 @@ class VLMClient:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
+    def _record_usage(self, task_type: str, usage: dict):
+        """Accumulate VLM token/time usage returned by the remote server."""
+        if not usage:
+            return
+        stats = self.usage_by_task.setdefault(task_type, {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "elapsed_seconds": 0.0,
+        })
+        stats["calls"] += 1
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            stats[key] += int(usage.get(key) or 0)
+        stats["elapsed_seconds"] += float(usage.get("elapsed_seconds") or 0.0)
+
+    def _post_infer(self, payload: dict, task_type: str, timeout: int) -> str:
+        """POST /infer and record usage. Compatible with old servers that return only text."""
+        payload = dict(payload)
+        payload["task_type"] = task_type
+        client_start = time.perf_counter()
+        resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=timeout)
+        client_elapsed = time.perf_counter() - client_start
+        resp.raise_for_status()
+        data = resp.json()
+
+        usage = data.get("usage") or {}
+        if usage:
+            usage.setdefault("elapsed_seconds", client_elapsed)
+            self._record_usage(task_type, usage)
+
+        return data.get("text", "")
+
+    def get_usage_summary(self, include_tasks=None, exclude_tasks=None) -> dict:
+        include_tasks = set(include_tasks) if include_tasks else None
+        exclude_tasks = set(exclude_tasks) if exclude_tasks else set()
+        summary = {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "elapsed_seconds": 0.0,
+            "by_task": {},
+        }
+
+        for task_type, stats in self.usage_by_task.items():
+            if include_tasks is not None and task_type not in include_tasks:
+                continue
+            if task_type in exclude_tasks:
+                continue
+            task_stats = dict(stats)
+            summary["by_task"][task_type] = task_stats
+            for key in ("calls", "prompt_tokens", "completion_tokens", "total_tokens", "elapsed_seconds"):
+                summary[key] += task_stats.get(key, 0)
+
+        summary["elapsed_seconds"] = round(summary["elapsed_seconds"], 6)
+        return summary
+
     def analyze_slidable_regions(self, image_path: str) -> list:
         """Send screenshot to remote VLM to retrieve slidable large regions"""
         payload = {
@@ -43,9 +103,7 @@ class VLMClient:
 
         try:
             print(f"  [VLM Client] Analyzing visual regions (One-Shot): {Path(image_path).name} ...")
-            resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=120)
-            resp.raise_for_status()
-            response_text = resp.json()["text"]
+            response_text = self._post_infer(payload, "region_detection", timeout=120)
             
             # You can print(response_text) here to observe the <think> process
             return self._parse_json_response(response_text)
@@ -74,10 +132,7 @@ class VLMClient:
             payload["example_assistant_reply"] = COMPONENT_EXAMPLE_ASSISTANT
 
         try:
-            resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=60)
-            resp.raise_for_status()
-            
-            response_text = resp.json()["text"].strip()
+            response_text = self._post_infer(payload, "component_command", timeout=60).strip()
             
             # Strip the <think> tags, retaining only the final pure instruction
             if "</think>" in response_text:
@@ -129,9 +184,7 @@ class VLMClient:
             payload["example_assistant_reply"] = CLICK_EXAMPLE_ASSISTANT
 
         try:
-            resp = requests.post(f"{self.server_url}/infer", json=payload, timeout=60)
-            resp.raise_for_status()
-            response_text = resp.json()["text"].strip()
+            response_text = self._post_infer(payload, "click_command", timeout=60).strip()
             
             if "</think>" in response_text:
                 return response_text.split("</think>")[-1].strip()

@@ -31,10 +31,14 @@ class Phase2Swiper:
         self.dataset_file = self.output_dir / "swipe_dataset.json"
         self.click_dataset_file = self.output_dir / "click_dataset.json"
         self.progress_file = self.output_dir / "phase2_progress.json"
+        self.profile_file = self.output_dir / "phase2_profile.json"
+        self.profile_table_file = self.output_dir / "phase2_profile_table.md"
+        self.phase1_profile_file = Path("outputs") / self.package / "phase1_profile.json"
 
         self.successful_swipes = []
         self.successful_clicks =[]
         self.processed_pages = set()
+        self.profile = self._new_profile()
 
         self._load_resume_data()
 
@@ -77,6 +81,164 @@ class Phase2Swiper:
             raise FileNotFoundError(f"Cannot find Phase 1 map data: {memory_file}")
         with open(memory_file, 'r', encoding='utf-8') as f:
             return json.load(f)
+
+    def _new_profile(self):
+        return {
+            "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "ended_at": None,
+            "counts": {
+                "pages_total": 0,
+                "pages_profiled": 0,
+                "pages_skipped_by_resume": 0,
+                "xml_components_detected": 0,
+                "vlm_regions_detected": 0,
+                "total_swipe_instructions": 0,
+                "attempted_swipe_instructions": 0,
+                "valid_swipe_instructions": 0,
+                "invalid_swipe_instructions": 0,
+            },
+            "timings": {
+                "state_collection_seconds": [],
+                "component_region_detection_seconds": [],
+                "candidate_generation_seconds": [],
+                "swipe_execution_screenshot_seconds": [],
+                "visual_change_verification_seconds": [],
+                "command_generation_seconds": [],
+                "valid_sample_total_seconds": [],
+            },
+        }
+
+    def _record_count(self, key, value=1):
+        self.profile["counts"][key] = self.profile["counts"].get(key, 0) + value
+
+    def _record_timing(self, key, elapsed):
+        self.profile["timings"].setdefault(key, []).append(round(float(elapsed), 6))
+
+    @staticmethod
+    def _avg(values):
+        return sum(values) / len(values) if values else 0.0
+
+    @staticmethod
+    def _fmt_seconds(seconds):
+        if seconds < 1:
+            return f"{seconds * 1000:.1f} ms"
+        return f"{seconds:.2f} s"
+
+    @staticmethod
+    def _fmt_seconds_and_minutes(seconds):
+        return f"{seconds:.2f} s / {seconds / 60:.2f} min"
+
+    def _get_vlm_usage_summary(self):
+        if hasattr(self.vlm, "get_usage_summary"):
+            # Exclude click-command calls; the requested statistics are for swipe generation.
+            return self.vlm.get_usage_summary(exclude_tasks={"click_command"})
+        return {
+            "calls": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "elapsed_seconds": 0.0,
+            "by_task": {},
+        }
+
+    def _load_phase1_profile(self):
+        if not self.phase1_profile_file.exists():
+            return {}
+        try:
+            with open(self.phase1_profile_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logging.warning(f"Failed to read Phase 1 profile from {self.phase1_profile_file}: {e}")
+            return {}
+
+    def _summarize_profile(self):
+        timings = self.profile["timings"]
+        counts = self.profile["counts"]
+        valid = counts.get("valid_swipe_instructions", 0)
+        vlm_usage = self._get_vlm_usage_summary()
+        phase1_profile = self._load_phase1_profile()
+
+        avg_timings = {key: round(self._avg(values), 6) for key, values in timings.items()}
+
+        phase1_total_seconds = float(phase1_profile.get("total_exploration_seconds") or 0.0)
+        phase1_avg_seconds = float(phase1_profile.get("avg_gui_exploration_state_collection_seconds") or 0.0)
+        if phase1_avg_seconds > 0:
+            gui_state_avg_seconds = phase1_avg_seconds
+            gui_state_total_seconds = phase1_total_seconds
+            gui_state_source = "phase1_profile"
+        else:
+            # Fallback keeps the script usable if Phase 2 is run alone.
+            gui_state_avg_seconds = avg_timings.get("state_collection_seconds", 0.0)
+            gui_state_total_seconds = sum(timings.get("state_collection_seconds", []))
+            gui_state_source = "phase2_replay_fallback"
+
+        phase2_module_seconds = sum(
+            sum(timings.get(key, []))
+            for key in (
+                "component_region_detection_seconds",
+                "candidate_generation_seconds",
+                "swipe_execution_screenshot_seconds",
+                "visual_change_verification_seconds",
+                "command_generation_seconds",
+            )
+        )
+        module_total_seconds = gui_state_total_seconds + phase2_module_seconds
+
+        avg_total_per_valid = module_total_seconds / valid if valid else 0.0
+        avg_tokens_per_valid = vlm_usage.get("total_tokens", 0) / valid if valid else 0.0
+
+        return {
+            "started_at": self.profile.get("started_at"),
+            "ended_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "package": self.package,
+            "screen_size": self.screen_size,
+            "counts": counts,
+            "avg_timings_seconds": avg_timings,
+            "phase1_profile": phase1_profile,
+            "gui_exploration_state_collection_source": gui_state_source,
+            "gui_exploration_state_collection_avg_seconds": round(gui_state_avg_seconds, 6),
+            "gui_exploration_state_collection_total_seconds": round(gui_state_total_seconds, 6),
+            "total_profiled_swipe_seconds": round(module_total_seconds, 6),
+            "avg_total_seconds_per_valid_swipe": round(avg_total_per_valid, 6),
+            "vlm_usage_excluding_clicks": vlm_usage,
+            "avg_vlm_tokens_per_valid_swipe": round(avg_tokens_per_valid, 2),
+        }
+
+    def _write_profile(self):
+        summary = self._summarize_profile()
+        with open(self.profile_file, "w", encoding="utf-8") as f:
+            json.dump(summary, f, ensure_ascii=False, indent=2)
+
+        avg = summary["avg_timings_seconds"]
+        total_per_valid = summary["avg_total_seconds_per_valid_swipe"]
+        counts = summary["counts"]
+        usage = summary["vlm_usage_excluding_clicks"]
+        gui_state_avg = summary.get("gui_exploration_state_collection_avg_seconds", 0.0)
+
+        lines = [
+            "| Module | Avg. Time |",
+            "|---|---:|",
+            f"| GUI exploration / state collection | {self._fmt_seconds(gui_state_avg)} per state |",
+            f"| Scrollable component/region detection | {self._fmt_seconds(avg.get('component_region_detection_seconds', 0.0))} |",
+            f"| Candidate swipe generation | {self._fmt_seconds(avg.get('candidate_generation_seconds', 0.0))} |",
+            f"| Swipe execution + screenshot capture | {self._fmt_seconds(avg.get('swipe_execution_screenshot_seconds', 0.0))} |",
+            f"| Visual-change verification | {self._fmt_seconds(avg.get('visual_change_verification_seconds', 0.0))} |",
+            f"| Command generation | {self._fmt_seconds(avg.get('command_generation_seconds', 0.0))} |",
+            f"| Total per valid swipe sample | {self._fmt_seconds_and_minutes(total_per_valid)} |",
+            "",
+            f"- Total generated swipe instructions: {counts.get('total_swipe_instructions', 0)}",
+            f"- Attempted swipe instructions: {counts.get('attempted_swipe_instructions', 0)}",
+            f"- Valid swipe instructions: {counts.get('valid_swipe_instructions', 0)}",
+            f"- Invalid swipe instructions: {counts.get('invalid_swipe_instructions', 0)}",
+            f"- VLM calls for swipe generation: {usage.get('calls', 0)}",
+            f"- VLM total tokens for swipe generation: {usage.get('total_tokens', 0)}",
+            f"- Avg. VLM tokens per valid swipe: {summary.get('avg_vlm_tokens_per_valid_swipe', 0.0)}",
+            f"- GUI exploration/state source: {summary.get('gui_exploration_state_collection_source', 'unknown')}",
+        ]
+        with open(self.profile_table_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+
+        logging.info(f"Profile saved to {self.profile_file} and {self.profile_table_file}.")
 
     def _synthesize_click_for_page(self, page, pages):
         """Extract VLM intent offline for the Click action navigating to this page"""
@@ -157,6 +319,8 @@ class Phase2Swiper:
     def get_swipe_candidates(self, page_id):
         """Get swipe candidates via XML components and VLM visual regions"""
         live_img_path = str(self.temp_dir / f"live_{page_id}.png")
+
+        detection_start = time.perf_counter()
         self.controller.take_screenshot(live_img_path)
 
         all_swipe_candidates =[]
@@ -164,14 +328,19 @@ class Phase2Swiper:
         # --- Source 1: XML Components ---
         logging.info(f"  -> Extracting live XML components from current page...")
         xml_components = self.controller.get_scrollable_elements_xml()
+        self._record_timing("component_region_detection_seconds", time.perf_counter() - detection_start)
+        self._record_count("xml_components_detected", len(xml_components))
 
         if xml_components:
             logging.info(f"  -> Discovered {len(xml_components)} scrollable XML components, requesting intent commands...")
             for comp in xml_components:
+                command_start = time.perf_counter()
                 intent_cmd = self.vlm.generate_intent_for_xml_component(
                     live_img_path, comp['bounds'], comp['direction'], comp['text']
                 )
+                self._record_timing("command_generation_seconds", time.perf_counter() - command_start)
 
+                candidate_start = time.perf_counter()
                 w, h = self.screen_size
                 norm_bbox = [
                     int(comp['bounds'][0]/w*1000), int(comp['bounds'][1]/h*1000),
@@ -185,26 +354,35 @@ class Phase2Swiper:
                     "bbox": norm_bbox,
                     "command": intent_cmd
                 })
+                self._record_timing("candidate_generation_seconds", time.perf_counter() - candidate_start)
                 logging.info(f"[Component] Generated intent: {intent_cmd}")
 
         # --- Source 2: VLM Visual Regions ---
         logging.info(f"  -> Calling VLM to analyze purely visual slidable regions (Regions)...")
+        detection_start = time.perf_counter()
         vlm_regions = self.vlm.analyze_slidable_regions(live_img_path)
+        self._record_timing("component_region_detection_seconds", time.perf_counter() - detection_start)
+        self._record_count("vlm_regions_detected", len(vlm_regions or []))
         if vlm_regions:
+            candidate_start = time.perf_counter()
             all_swipe_candidates.extend(vlm_regions)
+            self._record_timing("candidate_generation_seconds", time.perf_counter() - candidate_start)
 
+        self._record_count("total_swipe_instructions", len(all_swipe_candidates))
         logging.info(f"  => Summary complete, generated {len(all_swipe_candidates)} test targets for current page.")
         return all_swipe_candidates
 
     def run_synthesis(self):
         logging.info(f"=== Starting Phase 2 Swipe Data Synthesis Pipeline (App: {self.package}) ===")
         pages = self.load_memory()
+        self.profile["counts"]["pages_total"] = len(pages)
         logging.info(f"Loaded {len(pages)} unique pages for evaluation.")
 
         for page in pages:
             page_id = page['page_id']
 
             if page_id in self.processed_pages:
+                self._record_count("pages_skipped_by_resume")
                 logging.info(f"--- ⏭️ Node {page_id} already processed, skipping ---")
                 continue
 
@@ -216,6 +394,7 @@ class Phase2Swiper:
             self._synthesize_click_for_page(page, pages)
 
             logging.info(f"  -> Replaying trajectory to target page...")
+            state_start = time.perf_counter()
             if not self.controller.replay_trajectory_unverified(self.package, trajectory):
                 logging.error(f"  -> ❌ Exited target App during replay. Skipping this page.")
                 continue
@@ -223,49 +402,59 @@ class Phase2Swiper:
             # Ensure dynamic content loads
             self.controller.wait_for_loading_to_finish()
             time.sleep(8) 
+            self._record_timing("state_collection_seconds", time.perf_counter() - state_start)
+            self._record_count("pages_profiled")
 
             swipe_candidates = self.get_swipe_candidates(page_id)
 
             for idx, candidate in enumerate(swipe_candidates): 
                 if idx > 0:
                     logging.info(f"\n    -> Resetting state, re-navigating to target page...")
+                    state_start = time.perf_counter()
                     if not self.controller.replay_trajectory_unverified(self.package, trajectory):
                         logging.error(f"  -> ❌ Exited target App during replay. Skipping this page.")
                         continue
+                    self._record_timing("state_collection_seconds", time.perf_counter() - state_start)
+                self._record_count("attempted_swipe_instructions")
                 self.validate_swipe(idx, candidate, page_id)
 
             self.save_progress(page_id)
+            self._write_profile()
             logging.info(f"  => All swipe evaluations for node {page_id} completed, progress saved.")
 
         for _ in range(6):
             self.controller.d.press("back")
+        self._write_profile()
         logging.info(f"\n=== Phase 2 Complete! Synthesized {len(self.successful_swipes)} swipe records and {len(self.successful_clicks)} click records. ===")
         
     def validate_swipe(self, idx, candidate, page_id):
         logging.info(f"\n[Executing {idx+1}] {candidate.get('category')} | Intent: {candidate.get('command')}")
+        sample_start = time.perf_counter()
 
         time.sleep(8)
         self.controller.wait_for_loading_to_finish()
 
-        # Step B: Capture before image
+        # Step B-D: Capture before image, execute swipe, then capture after image
+        exec_start = time.perf_counter()
         before_img = str(self.output_dir / "temp_before.png")
         before_xml = str(self.output_dir / "temp_before.xml")
         self.controller.take_screenshot(before_img)
 
-        # Step C: Execute swipe
         swipe_params = self.controller.swipe_by_normalized_bbox(
             bbox=candidate['bbox'],
             direction=candidate['direction']
         )
 
-        # Step D: Capture after image
         self.controller.wait_for_loading_to_finish(timeout=4)
         after_img = str(self.output_dir / "temp_after.png")
         after_xml = str(self.output_dir / "temp_after.xml")
         self.controller.take_screenshot(after_img)
+        self._record_timing("swipe_execution_screenshot_seconds", time.perf_counter() - exec_start)
 
         # Step E: Compare and Verify
+        verify_start = time.perf_counter()
         is_success = calculate_image_diff(before_img, after_img, threshold=0.01)
+        self._record_timing("visual_change_verification_seconds", time.perf_counter() - verify_start)
 
         if is_success:
             logging.info(f"    -> ✅ Verification passed! Saving data (Images and XML).")
@@ -310,8 +499,11 @@ class Phase2Swiper:
                 "after_image": f"{dataset_id}_after.png", 
                 "action_data": action
             })
+            self._record_count("valid_swipe_instructions")
+            self._record_timing("valid_sample_total_seconds", time.perf_counter() - sample_start)
             self.save_dataset()
         else:
+            self._record_count("invalid_swipe_instructions")
             logging.info(f"    -> ❌ Verification failed! No UI changes after swipe. Discarding data.")
             for temp_file in [before_img, before_xml, after_img, after_xml]:
                 if os.path.exists(temp_file):
